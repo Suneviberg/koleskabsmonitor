@@ -24,11 +24,14 @@
     const app = initializeApp(firebaseConfig);
     const db  = getDatabase(app);
 
-    // We'll do a 45s threshold, same as detector
+    // 45s threshold
     const ALARM_THRESHOLD_MS = 45000;
     let alarmIsPlaying = false;
-    let checkInterval = null; 
-    let currentOpenStart = 0;
+    let isOpenNow      = false;
+
+    // We'll keep a local stopwatch too
+    let openStartTime   = 0;
+    let monitorInterval = null; // checks every 500ms
 
     let alarmAudio;
     let enableAudioBtn;
@@ -40,7 +43,7 @@
       alarmAudio     = document.getElementById('monitorAlarm');
       enableAudioBtn = document.getElementById('enableAudioBtn');
 
-      // Let the user enable audio
+      // Let user enable audio
       enableAudioBtn.addEventListener('click', () => {
         alarmAudio.play().then(() => {
           alarmAudio.pause();
@@ -54,30 +57,36 @@
       const currentStatusRef = ref(db, 'fridge/currentStatus');
       const logsRef          = ref(db, 'fridge/logs');
 
-      // Listen for open/closed status
+      // Listen for open/closed
       onValue(currentStatusRef, snapshot => {
         const val = snapshot.val();
         if (!val) {
           currentStatusEl.textContent = "Ingen status endnu...";
+          stopMonitorWatch();
           stopAlarm();
-          clearCheck();
           return;
         }
 
-        // Show "Åbent" or "Lukket" in UI
-        currentStatusEl.textContent = val.isOpen ? "Åbent" : "Lukket";
-
         if (val.isOpen) {
-          // If the fridge is open, use startTime from DB
-          currentOpenStart = val.startTime || Date.now(); 
-          startCheck();
+          currentStatusEl.textContent = "Åbent";
+          if (!isOpenNow) {
+            // We just transitioned from closed -> open
+            isOpenNow = true;
+            openStartTime = Date.now();
+            startMonitorWatch();
+          }
         } else {
-          clearCheck();
-          stopAlarm();
+          currentStatusEl.textContent = "Lukket";
+          if (isOpenNow) {
+            // closed -> stop local watch
+            isOpenNow = false;
+            stopMonitorWatch();
+            stopAlarm();
+          }
         }
       });
 
-      // Listen for logs
+      // Logs
       onChildAdded(logsRef, snapshot => {
         const entry = snapshot.val();
         if (!entry) return;
@@ -85,24 +94,23 @@
       });
     });
 
-    // Periodic check: if open > 45s, start alarm
-    function startCheck() {
-      clearCheck();
-      checkInterval = setInterval(() => {
+    function startMonitorWatch() {
+      if (monitorInterval) return;
+      monitorInterval = setInterval(() => {
         const now = Date.now();
-        const elapsed = now - currentOpenStart;
+        const elapsed = now - openStartTime;
         if (elapsed >= ALARM_THRESHOLD_MS && !alarmIsPlaying) {
           startAlarm();
         }
       }, 500);
     }
 
-    function clearCheck() {
-      if (checkInterval) {
-        clearInterval(checkInterval);
-        checkInterval = null;
+    function stopMonitorWatch() {
+      if (monitorInterval) {
+        clearInterval(monitorInterval);
+        monitorInterval = null;
       }
-      currentOpenStart = 0;
+      openStartTime = 0;
     }
 
     function startAlarm() {
@@ -124,6 +132,7 @@
       }
     }
 
+    // Log
     function addLogEntry(container, entry) {
       const div = document.createElement('div');
       const startStr = formatClockTime(new Date(entry.start));
