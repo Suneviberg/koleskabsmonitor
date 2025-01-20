@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8" />
+  <title>Køleskabsdetektor (Monitor)</title>
+  <link rel="stylesheet" href="monitorStyles.css">
+
+  <!-- We'll import Firebase modules in a <script type="module"> -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+    import { getDatabase, ref, onValue, onChildAdded } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
+
+    // Same config
+    const firebaseConfig = {
+      apiKey: "AIzaSyBk_0onk9XhXjEj6a7gLGunDAdRAuypOkw",
+      authDomain: "fridgedetector.firebaseapp.com",
+      databaseURL: "https://fridgedetector-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "fridgedetector",
+      storageBucket: "fridgedetector.firebasestorage.app",
+      messagingSenderId: "715913930919",
+      appId: "1:715913930919:web:b3a3a36bc4341579a71382"
+    };
+
+    // Initialize
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // Once DOM loads, set up watchers
+    document.addEventListener('DOMContentLoaded', () => {
+      const currentStatusEl = document.getElementById('currentStatus');
+      const logEntriesEl    = document.getElementById('logEntries');
+
+      const currentStatusRef = ref(db, 'fridge/currentStatus');
+      const logsRef          = ref(db, 'fridge/logs');
+
+      // 1) Current status
+      onValue(currentStatusRef, snapshot => {
+        const val = snapshot.val();
+        if (!val) {
+          currentStatusEl.textContent = "Ingen status endnu...";
+          return;
+        }
+        currentStatusEl.textContent = val.isOpen ? "Åbent" : "Lukket";
+      });
+
+      // 2) Log entries
+      onChildAdded(logsRef, snapshot => {
+        const entry = snapshot.val();
+        if (!entry) return;
+        addLogEntry(logEntriesEl, entry);
+      });
+    });
+
+    function addLogEntry(container, entry) {
+      const div = document.createElement('div');
+      const startStr = formatClockTime(new Date(entry.start));
+      const endStr   = formatClockTime(new Date(entry.end));
+      const durStr   = formatTime(entry.durationMs || 0);
+
+      div.textContent = `Åbent: ${startStr} - ${endStr} (Varighed: ${durStr})`;
+      // prepend so new logs appear at top
+      container.prepend(div);
+    }
+
+    function formatTime(ms) {
+      let total = Math.floor(ms / 1000);
+      const hh = Math.floor(total / 3600);
+      total %= 3600;
+      const mm = Math.floor(total / 60);
+      const ss = total % 60;
+      return [hh, mm, ss].map(n => String(n).padStart(2,'0')).join(':');
+    }
+
+    function formatClockTime(dateObj) {
+      const hh = String(dateObj.getHours()).padStart(2, '0');
+      const mm = String(dateObj.getMinutes()).padStart(2, '0');
+      const ss = String(dateObj.getSeconds()).padStart(2, '0');
+      return `${hh}:${mm}:${ss}`;
+    }
+  </script>
+</head>
+<body>
+  <div class="monitor-container">
+    <h1>Køleskabsdetektor – Overvågning</h1>
+
+    <div class="status-box">
+      <h2>Aktuel Status</h2>
+      <p id="currentStatus">Henter data...</p>
+    </div>
+
+    <div class="log-box">
+      <h2>Log</h2>
+      <div id="logEntries"></div>
+    </div>
+  </div>
+</body>
+</html>
