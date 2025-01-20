@@ -30,14 +30,13 @@
     let checkInterval = null; 
     let currentOpenStart = 0;
 
-    let alarmAudio;  // NEW
-    let enableAudioBtn;  // NEW
+    let alarmAudio;
+    let enableAudioBtn;
 
     document.addEventListener('DOMContentLoaded', () => {
       const currentStatusEl = document.getElementById('currentStatus');
       const logEntriesEl    = document.getElementById('logEntries');
 
-      // NEW references
       alarmAudio     = document.getElementById('monitorAlarm');
       enableAudioBtn = document.getElementById('enableAudioBtn');
 
@@ -69,6 +68,7 @@
         currentStatusEl.textContent = val.isOpen ? "Åbent" : "Lukket";
 
         if (val.isOpen) {
+          // If the fridge is open, use startTime from DB
           currentOpenStart = val.startTime || Date.now(); 
           startCheck();
         } else {
@@ -85,12 +85,12 @@
       });
     });
 
+    // Periodic check: if open > 45s, start alarm
     function startCheck() {
       clearCheck();
       checkInterval = setInterval(() => {
         const now = Date.now();
         const elapsed = now - currentOpenStart;
-        // If it's been open for 45+ seconds, start alarm
         if (elapsed >= ALARM_THRESHOLD_MS && !alarmIsPlaying) {
           startAlarm();
         }
@@ -135,9 +135,9 @@
     }
 
     function formatClockTime(dateObj) {
-      const hh = String(dateObj.getHours()).padStart(2, '0');
-      const mm = String(dateObj.getMinutes()).padStart(2, '0');
-      const ss = String(dateObj.getSeconds()).padStart(2, '0');
+      const hh = String(dateObj.getHours()).padStart(2,'0');
+      const mm = String(dateObj.getMinutes()).padStart(2,'0');
+      const ss = String(dateObj.getSeconds()).padStart(2,'0');
       return `${hh}:${mm}:${ss}`;
     }
 
@@ -173,7 +173,7 @@
     Din browser understøtter ikke afspilning af alarm-lyd.
   </audio>
 
-  <!-- NEW: “Enable Audio” button -->
+  <!-- “Enable Audio” button for the monitor page -->
   <button id="enableAudioBtn" style="position: absolute; top:10px; right:10px;">
     Aktivér alarm-lyd
   </button>
