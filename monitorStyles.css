@@ -59,3 +59,19 @@ h1 {
   margin-bottom: 10px;
   white-space: pre-line;
 }
+
+/* NEW: Style for the "Enable Audio" button */
+#enableAudioBtn {
+  padding: 8px 16px;
+  background-color: #555;
+  border: none;
+  border-radius: 4px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.2s;
+}
+
+#enableAudioBtn:hover {
+  background-color: #666;
+}
