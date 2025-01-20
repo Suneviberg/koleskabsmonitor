@@ -24,31 +24,105 @@
     const app = initializeApp(firebaseConfig);
     const db  = getDatabase(app);
 
+    // We'll do a 45s threshold, same as detector
+    const ALARM_THRESHOLD_MS = 45000;
+    let alarmIsPlaying = false;
+    let checkInterval = null; 
+    let currentOpenStart = 0;
+
+    let alarmAudio;  // NEW
+    let enableAudioBtn;  // NEW
+
     document.addEventListener('DOMContentLoaded', () => {
       const currentStatusEl = document.getElementById('currentStatus');
       const logEntriesEl    = document.getElementById('logEntries');
 
-      // Refs to the same paths
+      // NEW references
+      alarmAudio     = document.getElementById('monitorAlarm');
+      enableAudioBtn = document.getElementById('enableAudioBtn');
+
+      // Let the user enable audio
+      enableAudioBtn.addEventListener('click', () => {
+        alarmAudio.play().then(() => {
+          alarmAudio.pause();
+          alarmAudio.currentTime = 0;
+          console.log("Monitor alarm-larm aktiveret via brugerinteraktion.");
+        }).catch(err => {
+          console.warn("Monitor audio enable failed:", err);
+        });
+      });
+
       const currentStatusRef = ref(db, 'fridge/currentStatus');
       const logsRef          = ref(db, 'fridge/logs');
 
-      // 1) Listen for open/closed status
+      // Listen for open/closed status
       onValue(currentStatusRef, snapshot => {
         const val = snapshot.val();
         if (!val) {
           currentStatusEl.textContent = "Ingen status endnu...";
+          stopAlarm();
+          clearCheck();
           return;
         }
+
+        // Show "Åbent" or "Lukket" in UI
         currentStatusEl.textContent = val.isOpen ? "Åbent" : "Lukket";
+
+        if (val.isOpen) {
+          currentOpenStart = val.startTime || Date.now(); 
+          startCheck();
+        } else {
+          clearCheck();
+          stopAlarm();
+        }
       });
 
-      // 2) Listen for logs
+      // Listen for logs
       onChildAdded(logsRef, snapshot => {
         const entry = snapshot.val();
         if (!entry) return;
         addLogEntry(logEntriesEl, entry);
       });
     });
+
+    function startCheck() {
+      clearCheck();
+      checkInterval = setInterval(() => {
+        const now = Date.now();
+        const elapsed = now - currentOpenStart;
+        // If it's been open for 45+ seconds, start alarm
+        if (elapsed >= ALARM_THRESHOLD_MS && !alarmIsPlaying) {
+          startAlarm();
+        }
+      }, 500);
+    }
+
+    function clearCheck() {
+      if (checkInterval) {
+        clearInterval(checkInterval);
+        checkInterval = null;
+      }
+      currentOpenStart = 0;
+    }
+
+    function startAlarm() {
+      alarmIsPlaying = true;
+      try {
+        alarmAudio.play().catch(err => {
+          console.warn("Monitor alarm error:", err);
+        });
+      } catch (err) {
+        console.warn("Monitor alarm exception:", err);
+      }
+    }
+
+    function stopAlarm() {
+      alarmIsPlaying = false;
+      if (!alarmAudio.paused) {
+        alarmAudio.pause();
+        alarmAudio.currentTime = 0;
+      }
+    }
 
     function addLogEntry(container, entry) {
       const div = document.createElement('div');
@@ -57,7 +131,7 @@
       const durStr   = formatDuration(entry.durationMs || 0);
 
       div.textContent = `Åbent: ${startStr} - ${endStr} (Varighed: ${durStr})`;
-      container.prepend(div); // newest on top
+      container.prepend(div);
     }
 
     function formatClockTime(dateObj) {
@@ -73,7 +147,7 @@
       total    %= 3600;
       const mm  = Math.floor(total / 60);
       const ss  = total % 60;
-      return [hh, mm, ss].map(n => String(n).padStart(2, '0')).join(':');
+      return [hh, mm, ss].map(n => String(n).padStart(2,'0')).join(':');
     }
   </script>
 </head>
@@ -91,5 +165,17 @@
       <div id="logEntries"></div>
     </div>
   </div>
+
+  <!-- Alarm audio (loop) for monitor -->
+  <audio id="monitorAlarm" loop style="display:none;">
+    <source src="https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg" type="audio/ogg">
+    <source src="https://actions.google.com/sounds/v1/alarms/alarm_clock.mp3" type="audio/mpeg">
+    Din browser understøtter ikke afspilning af alarm-lyd.
+  </audio>
+
+  <!-- NEW: “Enable Audio” button -->
+  <button id="enableAudioBtn" style="position: absolute; top:10px; right:10px;">
+    Aktivér alarm-lyd
+  </button>
 </body>
 </html>
