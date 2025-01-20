@@ -2,15 +2,14 @@
 <html lang="da">
 <head>
   <meta charset="UTF-8" />
-  <title>Køleskabsdetektor (Monitor)</title>
+  <title>Køleskabsdetektor – Overvågning</title>
   <link rel="stylesheet" href="monitorStyles.css">
 
-  <!-- We'll import Firebase modules in a <script type="module"> -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
     import { getDatabase, ref, onValue, onChildAdded } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
 
-    // Same config
+    // Same Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyBk_0onk9XhXjEj6a7gLGunDAdRAuypOkw",
       authDomain: "fridgedetector.firebaseapp.com",
@@ -23,17 +22,17 @@
 
     // Initialize
     const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
+    const db  = getDatabase(app);
 
-    // Once DOM loads, set up watchers
     document.addEventListener('DOMContentLoaded', () => {
       const currentStatusEl = document.getElementById('currentStatus');
       const logEntriesEl    = document.getElementById('logEntries');
 
+      // Refs to the same paths
       const currentStatusRef = ref(db, 'fridge/currentStatus');
       const logsRef          = ref(db, 'fridge/logs');
 
-      // 1) Current status
+      // 1) Listen for open/closed status
       onValue(currentStatusRef, snapshot => {
         const val = snapshot.val();
         if (!val) {
@@ -43,7 +42,7 @@
         currentStatusEl.textContent = val.isOpen ? "Åbent" : "Lukket";
       });
 
-      // 2) Log entries
+      // 2) Listen for logs
       onChildAdded(logsRef, snapshot => {
         const entry = snapshot.val();
         if (!entry) return;
@@ -55,20 +54,10 @@
       const div = document.createElement('div');
       const startStr = formatClockTime(new Date(entry.start));
       const endStr   = formatClockTime(new Date(entry.end));
-      const durStr   = formatTime(entry.durationMs || 0);
+      const durStr   = formatDuration(entry.durationMs || 0);
 
       div.textContent = `Åbent: ${startStr} - ${endStr} (Varighed: ${durStr})`;
-      // prepend so new logs appear at top
-      container.prepend(div);
-    }
-
-    function formatTime(ms) {
-      let total = Math.floor(ms / 1000);
-      const hh = Math.floor(total / 3600);
-      total %= 3600;
-      const mm = Math.floor(total / 60);
-      const ss = total % 60;
-      return [hh, mm, ss].map(n => String(n).padStart(2,'0')).join(':');
+      container.prepend(div); // newest on top
     }
 
     function formatClockTime(dateObj) {
@@ -76,6 +65,15 @@
       const mm = String(dateObj.getMinutes()).padStart(2, '0');
       const ss = String(dateObj.getSeconds()).padStart(2, '0');
       return `${hh}:${mm}:${ss}`;
+    }
+
+    function formatDuration(ms) {
+      let total = Math.floor(ms / 1000);
+      const hh  = Math.floor(total / 3600);
+      total    %= 3600;
+      const mm  = Math.floor(total / 60);
+      const ss  = total % 60;
+      return [hh, mm, ss].map(n => String(n).padStart(2, '0')).join(':');
     }
   </script>
 </head>
