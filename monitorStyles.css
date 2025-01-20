@@ -60,7 +60,7 @@ h1 {
   white-space: pre-line;
 }
 
-/* NEW: Style for the "Enable Audio" button */
+/* Optional button style if not using absolute positioning */
 #enableAudioBtn {
   padding: 8px 16px;
   background-color: #555;
