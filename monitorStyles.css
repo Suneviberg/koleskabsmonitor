@@ -16,7 +16,7 @@ body {
 }
 
 .monitor-container {
-  max-width: 600px;
+  max-width: 700px;
   width: 100%;
   padding: 20px;
 }
@@ -50,25 +50,43 @@ h1 {
   padding: 16px;
   margin-bottom: 20px;
   font-size: 1rem;
-}
-.stats-box p {
-  margin-bottom: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-around;
 }
 
-/* Log Box: fixed height with scrolling */
+.stat-group {
+  background: #3f3f3f;
+  border-radius: 8px;
+  padding: 10px;
+  margin: 5px;
+  width: 45%;
+  min-width: 200px;
+}
+
+.stat-group h3 {
+  text-align: center;
+  margin-bottom: 6px;
+  font-size: 1.1rem;
+}
+
+/* Log Box with scrolling */
 .log-box {
   background: #2f2f2f;
   border: 2px solid #444;
   border-radius: 8px;
   padding: 16px;
-  max-height: 250px;  /* Adjust to display approx. 5 entries */
+  max-height: 250px; /* Adjust height to show about 5 entries */
   overflow-y: auto;
+  margin-bottom: 20px;
 }
+
 .log-box h2 {
   text-align: center;
   margin-bottom: 8px;
   font-size: 1.2rem;
 }
+
 #logEntries > div {
   background: #3f3f3f;
   border-radius: 4px;
@@ -81,7 +99,7 @@ h1 {
 .enable-audio-btn {
   display: block;
   width: 150px;
-  margin: 10px auto;
+  margin: 0 auto;
   padding: 8px 16px;
   background-color: #555;
   border: none;
@@ -92,6 +110,7 @@ h1 {
   text-align: center;
   transition: background-color 0.2s;
 }
+
 .enable-audio-btn:hover {
   background-color: #666;
 }
