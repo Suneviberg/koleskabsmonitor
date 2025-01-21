@@ -16,6 +16,12 @@ body {
 
 /* The rest remains the same as before */
 
+.stat-big-box{
+  display: grid;
+  grid-column: span 2;
+  gap: 24px; 
+}
+  
 .stat-sub-group-container{
   display: grid;
   grid-template-columns: repeat(2, 1fr);
