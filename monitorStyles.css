@@ -29,13 +29,13 @@ body {
 }
 
 .stat-counter{
-  font-size: 18;
+  font-size: 18!important;
   font-weight: 700;
   color: #FAFAFA
 }
 
 .stat-description{
-  font-size: 12;
+  font-size: 12!important;
   font-weight: 300;
   color: #d1d1d1;
 }
