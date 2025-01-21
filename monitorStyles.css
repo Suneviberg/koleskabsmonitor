@@ -45,7 +45,8 @@ body {
   font-size: 0.9rem;
   color: #ddd;
   margin: 4px 0px;
-  
+}
+
 .stat-sub-group-container{
   display: grid;
   grid-template-columns: repeat(2, 1fr);
