@@ -55,9 +55,9 @@ h1 {
   padding: 10px;
   margin-bottom: 20px;
   font-size: 1rem;
-  display: flex;
+  display: grid;
   flex-wrap: wrap;
-  justify-content: space-around;
+  gap: 8px;
 }
 
 .stat-group {
@@ -65,7 +65,6 @@ h1 {
   border-radius: 8px;
   padding: 5px;
   margin: 5px;
-  width: 45%;
   min-width: 200px;
 }
 
