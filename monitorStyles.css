@@ -1,12 +1,11 @@
-/* Reset */
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
+/* Set the background image for the entire page */
 body {
-  background-color: #1e1e1e;
+  background-image: url("Koleskab.png"); /* Make sure Koleskab.png is in the same directory (or update the path if stored elsewhere) */
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  /* Optionally, you can add a fallback background color */
+  background-color: #000;
   color: #fff;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   min-height: 100vh;
@@ -15,13 +14,17 @@ body {
   align-items: center;
 }
 
+/* The rest remains the same as before */
+
 .monitor-container {
   max-width: 700px;
   width: 100%;
   padding: 20px;
+  /* If you want a semi-transparent background behind the content, you can add: */
+  background-color: rgba(0, 0, 0, 0.5);
+  border-radius: 8px;
 }
 
-/* Headings */
 h1 {
   text-align: center;
   margin-bottom: 20px;
@@ -29,7 +32,9 @@ h1 {
 
 /* Status Box */
 .status-box {
-  background: #1a6600; /* Default to Lukket color */
+  /* When in Lukket state, the Detector (and Monitor JS) set the background dynamically.
+     For default, we can use Lukket color */
+  background: #1a6600;
   border: 2px solid #444;
   border-radius: 8px;
   padding: 16px;
@@ -76,7 +81,7 @@ h1 {
   border: 2px solid #444;
   border-radius: 8px;
   padding: 16px;
-  max-height: 250px;  /* Approximately 5 entries */
+  max-height: 250px;  /* Approximately 5 entries visible */
   overflow-y: auto;
   margin-bottom: 20px;
 }
