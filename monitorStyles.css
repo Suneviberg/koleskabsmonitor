@@ -1,6 +1,6 @@
 /* Set the background image for the entire page */
 body {
-  background-image: url("Koleskab.png"); /* Make sure Koleskab.png is in the same directory (or update the path if stored elsewhere) */
+  background-image: url("Koleskab.jpg"); /* Make sure Koleskab.png is in the same directory (or update the path if stored elsewhere) */
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
