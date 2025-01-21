@@ -1,10 +1,9 @@
 /* Set the background image for the entire page */
 body {
-  background-image: url("Koleskab.jpg"); /* Make sure Koleskab.png is in the same directory (or update the path if stored elsewhere) */
+  background-image: url("Koleskab.jpg");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  /* Optionally, you can add a fallback background color */
   background-color: #000;
   color: #fff;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -14,68 +13,11 @@ body {
   align-items: center;
 }
 
-/* The rest remains the same as before */
-
-.stat-big-box{
-  display: grid;
-  grid-column: span 2;
-  gap: 24px; 
-}
-
-.stat-big-box {
-  background: rgba(255, 255, 255, 0.1); /* a light overlay for each tile */
-  border-radius: 8px;
-  padding: 12px;
-  text-align: center;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.stat-big-box:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-}
-
-.stat-big-box h3 {
-  margin-bottom: 8px;
-  font-size: 1.1rem;
-  color: #fdfdfd;
-}
-
-.stat-big-box p {
-  font-size: 0.9rem;
-  color: #ddd;
-  margin: 4px 0px;
-}
-
-.stat-sub-group-container{
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 24px;
-}
-
-.stat-sub-group{
-  display: flex;
-  flex-direction: column;
-  gap: 0px;
-}
-
-.stat-counter{
-  font-weight: 700;
-  color: #FAFAFA;
-  margin: 0px 0px!important;
-}
-
-.stat-description{
-  font-size: 12px!important;
-  font-weight: 300;
-  color: #d1d1d1;
-}
-
+/* Monitor container with semi-transparent background */
 .monitor-container {
   max-width: 700px;
   width: 100%;
   padding: 10px;
-  /* If you want a semi-transparent background behind the content, you can add: */
   background-color: rgba(0, 0, 0, 0.5);
   border-radius: 8px;
   backdrop-filter: blur(10px);
@@ -88,9 +30,7 @@ h1 {
 
 /* Status Box */
 .status-box {
-  /* When in Lukket state, the Detector (and Monitor JS) set the background dynamically.
-     For default, we can use Lukket color */
-  background: #1a6600;
+  background: #1a6600; /* Default Lukket color */
   border: 2px solid #444;
   border-radius: 8px;
   padding: 16px;
@@ -98,14 +38,14 @@ h1 {
   text-align: center;
 }
 
-.status-box h2 {
+.status-box h3 {
   margin-bottom: 8px;
   font-size: 1.2rem;
 }
 
 /* Statistics Box */
 .stats-box {
-  background: rgba(51, 51, 51, 0.85); /* slightly transparent dark background */
+  background: rgba(51, 51, 51, 0.85);
   border: none;
   border-radius: 12px;
   padding: 20px;
@@ -115,8 +55,52 @@ h1 {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
 
+/* Toggle section inside stat-big-box */
+.stat-big-box {
+  grid-column: span 2;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+#toggleContainer {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.toggle-btn {
+  flex: 1;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  color: #fdfdfd;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.toggle-btn.active {
+  background: rgba(255, 255, 255, 0.4);
+  font-weight: bold;
+}
+
+/* Tile for toggle statistics */
+#toggleStats {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+}
+
+/* General stat-group style for other tiles */
 .stat-group {
-  background: rgba(255, 255, 255, 0.1); /* a light overlay for each tile */
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   padding: 12px;
   text-align: center;
@@ -137,7 +121,7 @@ h1 {
 .stat-group p {
   font-size: 0.9rem;
   color: #ddd;
-  margin: 4px 0px;
+  margin: 4px 0;
 }
 
 /* Log Box with scrolling */
@@ -146,7 +130,7 @@ h1 {
   border: 2px solid #444;
   border-radius: 8px;
   padding: 16px;
-  max-height: 250px;  /* Approximately 5 entries visible */
+  max-height: 250px;
   overflow-y: auto;
   margin-bottom: 20px;
 }
