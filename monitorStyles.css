@@ -21,6 +21,30 @@ body {
   grid-column: span 2;
   gap: 24px; 
 }
+
+.stat-big-box {
+  background: rgba(255, 255, 255, 0.1); /* a light overlay for each tile */
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stat-big-box:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.stat-big-box h3 {
+  margin-bottom: 8px;
+  font-size: 1.1rem;
+  color: #fdfdfd;
+}
+
+.stat-big-box p {
+  font-size: 0.9rem;
+  color: #ddd;
+  margin: 4px 0px;
   
 .stat-sub-group-container{
   display: grid;
