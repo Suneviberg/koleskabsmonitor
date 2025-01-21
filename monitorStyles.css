@@ -17,26 +17,25 @@ body {
 /* The rest remains the same as before */
 
 .stat-sub-group-container{
-display: grid;
-grid-template-columns: repeat(2, 1fr);
-gap: 24px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
 }
 
 .stat-sub-group{
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: 4px;
+  gap: 0px;
 }
 
 .stat-counter{
-  font-size: 18px;
+  font-size: 18;
   font-weight: 700;
   color: #FAFAFA
 }
 
 .stat-description{
-  font-size: 12px;
+  font-size: 12;
   font-weight: 300;
   color: #d1d1d1;
 }
