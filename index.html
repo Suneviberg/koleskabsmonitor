@@ -2,7 +2,7 @@
 <html lang="da">
 <head>
   <meta charset="UTF-8" />
-  <title>Køleskabsdetektor v3000</title>
+  <title>Køleskabsdetektor v3000 – Overvågning</title>
   <link rel="stylesheet" href="monitorStyles.css">
 
   <!-- Firebase Modules (ES Modules) -->
@@ -23,7 +23,7 @@
 
     // Initialize Firebase
     const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
+    const db  = getDatabase(app);
     window.FridgeDB = { db };
   </script>
 
@@ -40,39 +40,40 @@
     // Array to hold log entries for statistics
     let allLogs = [];
     
-    // Statistics variables
-    let countAll = 0, totalAll = 0;
-    let countMonth = 0, totalMonth = 0;
-    let countWeek = 0, totalWeek = 0;
-    let countDay = 0, totalDay = 0;
+    // Statistics variables (for all periods)
+    // We will calculate these inside updateStatistics()
+    
+    // Global variable to keep track of the current toggle selection
+    let currentPeriod = "måned"; // default: "måned"; allowed values: "dag", "uge", "måned"
     
     // For tracking the last closing timestamp (for "time since last open")
     let lastLogEndTime = 0;
     
     document.addEventListener('DOMContentLoaded', () => {
+      // Grab UI elements
       const currentStatusEl = document.getElementById('currentStatus');
-      const statusBox = document.querySelector('.status-box'); // Our box we want to color
+      const statusBox = document.querySelector('.status-box'); // used for dynamic coloring
       const logEntriesEl = document.getElementById('logEntries');
       
-      // Statistics elements
+      // Toggle container (new)
+      const toggleContainer = document.getElementById('toggleContainer');
+      const dayBtn = document.getElementById('toggleDay');
+      const weekBtn = document.getElementById('toggleWeek');
+      const monthBtn = document.getElementById('toggleMonth');
+      
+      // Statistics elements for toggle group
+      const toggleCountEl = document.getElementById('toggleCount');
+      const toggleAvgEl = document.getElementById('toggleAverage');
+      
+      // Statistics elements for "Alle" (all time) (if desired, you may leave these as before)
       const totalBoxCountEl = document.getElementById('totalAllCount');
       const totalBoxAvgEl   = document.getElementById('averageAllTime');
-      const monthBoxCountEl = document.getElementById('totalMonthCount');
-      const monthBoxAvgEl   = document.getElementById('averageMonth');
-      const weekBoxCountEl  = document.getElementById('totalWeekCount');
-      const weekBoxAvgEl    = document.getElementById('averageWeek');
-      const dayBoxCountEl   = document.getElementById('totalDayCount');
-      const dayBoxAvgEl     = document.getElementById('averageDay');
       
-      // Current opening duration and time since last open:
-      const currentOpenEl   = document.getElementById('currentOpeningDuration');
+      // Current opening and time since last open
+      const currentOpenEl = document.getElementById('currentOpeningDuration');
       const timeSinceOpenEl = document.getElementById('timeSinceLastOpen');
       
-      const db = window.FridgeDB.db;
-      const currentStatusRef = ref(db, 'fridge/currentStatus');
-      const logsRef = ref(db, 'fridge/logs');
-      
-      // Alarm audio and Enable Audio button
+      // Alarm audio and Enable Audio Button
       const alarmAudio = document.getElementById('monitorAlarm');
       const enableAudioBtn = document.getElementById('enableAudioBtn');
       
@@ -90,7 +91,45 @@
         });
       });
       
-      // Listen for changes to the current status from Firebase
+      // Set up toggle buttons
+      dayBtn.addEventListener('click', () => { 
+        currentPeriod = "dag"; 
+        updateToggleDisplay();
+        updateToggleStatistics();
+      });
+      weekBtn.addEventListener('click', () => { 
+        currentPeriod = "uge"; 
+        updateToggleDisplay();
+        updateToggleStatistics();
+      });
+      monthBtn.addEventListener('click', () => { 
+        currentPeriod = "måned"; 
+        updateToggleDisplay();
+        updateToggleStatistics();
+      });
+      
+      function updateToggleDisplay() {
+        // Remove active class from all, then add it to the selected one.
+        dayBtn.classList.remove('active');
+        weekBtn.classList.remove('active');
+        monthBtn.classList.remove('active');
+        if (currentPeriod === "dag") {
+          dayBtn.classList.add('active');
+        } else if (currentPeriod === "uge") {
+          weekBtn.classList.add('active');
+        } else if (currentPeriod === "måned") {
+          monthBtn.classList.add('active');
+        }
+      }
+      
+      updateToggleDisplay(); // set initial state
+
+      // Firebase Database References
+      const db = window.FridgeDB.db;
+      const currentStatusRef = ref(db, 'fridge/currentStatus');
+      const logsRef = ref(db, 'fridge/logs');
+      
+      // Listen for current status changes
       onValue(currentStatusRef, snapshot => {
         const val = snapshot.val();
         if (!val) {
@@ -100,17 +139,15 @@
           return;
         }
         currentStatusEl.textContent = val.isOpen ? "Åbent" : "Lukket";
-        // Update the background color of status-box based on status:
+        // Update background color according to state:
         if (val.isOpen) {
-          // When open, set color to red (#cc0000)
-          statusBox.style.backgroundColor = "#660000";
+          statusBox.style.backgroundColor = "#660000"; // Åbent color (modified from before)
           if (!currentOpenStart || currentOpenStart === 0) {
             currentOpenStart = val.startTime || Date.now();
             startMonitorWatch(alarmAudio);
           }
         } else {
-          // When closed, set color to green (#1a6600)
-          statusBox.style.backgroundColor = "#1a6600";
+          statusBox.style.backgroundColor = "#1a6600"; // Lukket color
           stopMonitorWatch();
           stopAlarm(alarmAudio);
           updateTimeSinceLastOpen();
@@ -124,7 +161,8 @@
         if (!entry) return;
         addLogEntry(logEntriesEl, entry);
         allLogs.push(entry);
-        updateStatistics();
+        updateAllStatistics();
+        updateToggleStatistics();
       });
       
       // Update dynamic stats every second
@@ -139,54 +177,49 @@
         }
       }, 1000);
       
-      // Update statistics function
-      function updateStatistics() {
-        // Reset counters
-        countAll = 0; totalAll = 0;
-        countMonth = 0; totalMonth = 0;
-        countWeek = 0; totalWeek = 0;
-        countDay = 0; totalDay = 0;
-        
+      function updateAllStatistics() {
+        // Calculate All-Time statistics regardless of toggle selection
+        let count = 0, total = 0;
+        for (const entry of allLogs) {
+          count++;
+          total += entry.durationMs || 0;
+        }
+        totalBoxCountEl.textContent = count;
+        totalBoxAvgEl.textContent = count > 0 ? formatTime(total / count) : "00:00:00";
+      }
+      
+      function updateToggleStatistics() {
+        let count = 0, total = 0;
         const now = new Date();
         const currentYear = now.getFullYear();
         const currentMonth = now.getMonth();
         const currentDate = now.getDate();
-        
-        // For week: entries from the last 7 days
+        // For week, consider entries from the last 7 days
         const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         
         for (const entry of allLogs) {
-          countAll++;
-          totalAll += entry.durationMs || 0;
-          
           const entryDate = new Date(entry.start);
-          if (entryDate.getFullYear() === currentYear && entryDate.getMonth() === currentMonth) {
-            countMonth++;
-            totalMonth += entry.durationMs || 0;
-          }
-          if (entryDate >= weekAgo) {
-            countWeek++;
-            totalWeek += entry.durationMs || 0;
-          }
-          if (entryDate.getFullYear() === currentYear &&
-              entryDate.getMonth() === currentMonth &&
-              entryDate.getDate() === currentDate) {
-            countDay++;
-            totalDay += entry.durationMs || 0;
+          if (currentPeriod === "måned") {
+            if (entryDate.getFullYear() === currentYear && entryDate.getMonth() === currentMonth) {
+              count++;
+              total += entry.durationMs || 0;
+            }
+          } else if (currentPeriod === "uge") {
+            if (entryDate >= weekAgo) {
+              count++;
+              total += entry.durationMs || 0;
+            }
+          } else if (currentPeriod === "dag") {
+            if (entryDate.getFullYear() === currentYear &&
+                entryDate.getMonth() === currentMonth &&
+                entryDate.getDate() === currentDate) {
+              count++;
+              total += entry.durationMs || 0;
+            }
           }
         }
-        
-        document.getElementById('totalAllCount').textContent = countAll;
-        document.getElementById('averageAllTime').textContent = countAll > 0 ? formatTime(totalAll / countAll) : "00:00:00";
-        
-        document.getElementById('totalMonthCount').textContent = countMonth;
-        document.getElementById('averageMonth').textContent = countMonth > 0 ? formatTime(totalMonth / countMonth) : "00:00:00";
-        
-        document.getElementById('totalWeekCount').textContent = countWeek;
-        document.getElementById('averageWeek').textContent = countWeek > 0 ? formatTime(totalWeek / countWeek) : "00:00:00";
-        
-        document.getElementById('totalDayCount').textContent = countDay;
-        document.getElementById('averageDay').textContent = countDay > 0 ? formatTime(totalDay / countDay) : "00:00:00";
+        document.getElementById('toggleCount').textContent = count;
+        document.getElementById('toggleAverage').textContent = count > 0 ? formatTime(total / count) : "00:00:00";
       }
     });
     
@@ -233,7 +266,6 @@
       const durStr = formatTime(entry.durationMs || 0);
       div.textContent = `Åbnet: ${startStr} - ${endStr} (Varighed: ${durStr})`;
       container.prepend(div);
-      // Update last log end time
       lastLogEndTime = entry.end;
     }
     
@@ -249,9 +281,7 @@
       totalSeconds %= 3600;
       const minutes = Math.floor(totalSeconds / 60);
       const seconds = totalSeconds % 60;
-      return [hours, minutes, seconds]
-              .map(n => String(n).padStart(2, '0'))
-              .join(':');
+      return [hours, minutes, seconds].map(n => String(n).padStart(2, '0')).join(':');
     }
     
     function formatClockTime(dateObj) {
@@ -264,7 +294,7 @@
 </head>
 <body>
   <div class="monitor-container">
-    <h1>Køleskabsdetektor v3000</h1>
+    <h1>Køleskabsdetektor v3000 – Overvågning</h1>
     
     <div class="status-box">
       <h3>Aktuel Status</h3>
@@ -272,44 +302,36 @@
     </div>
     
     <div class="stats-box">
-      <div class="stat-group">
-        <h2 class="stat-counter"><span id="currentOpeningDuration">00:00:00</span></h2>
-        <p>Aktuel åbning</p>
-      </div>
-      <div class="stat-group">
-        <h2 class="stat-counter"><span id="timeSinceLastOpen">00:00:00</span></h2>
-        <p>Tid siden sidste åbning</p>
-      </div>
-      <div class="stat-big-box">
-        <h3>Big Box</h3>
-      </div>      
+      <!-- "Alle" statistics box (always shown) -->
       <div class="stat-group">
         <h3>Alle</h3>
         <p>Antal åbninger: <span id="totalAllCount">0</span></p>
         <p>Gennemsnitlig åbningstid: <span id="averageAllTime">00:00:00</span></p>
       </div>
-      <div class="stat-group">
-        <h3>Måned</h3>
-        <div class="stat-sub-group-container">
-          <div class="stat-sub-group">
-            <h2 class="stat-counter"><span id="totalMonthCount">0</span></h2>
-            <p class="stat-description">Åbninger</p>
-          </div>
-       <div class="stat-sub-group">
-            <h2 class="stat-counter"><span id="averageMonth">00:00:00</span></h2>
-            <p class="stat-description">Gns. Åbningstid</p>
-          </div>
-          </div>   
+      
+      <!-- Toggle controls for Day, Week, Month -->
+      <div class="stat-big-box">
+        <div id="toggleContainer">
+          <button id="toggleDag" class="toggle-btn">Dag</button>
+          <button id="toggleUge" class="toggle-btn">Uge</button>
+          <button id="toggleMåned" class="toggle-btn active">Måned</button>
+        </div>
+        <div id="toggleStats">
+          <p>Antal åbninger: <span id="toggleCount">0</span></p>
+          <p>Gennemsnitlig åbningstid: <span id="toggleAverage">00:00:00</span></p>
+        </div>
       </div>
+      
+      <!-- Current opening duration -->
       <div class="stat-group">
-        <h3>Uge</h3>
-        <p>Antal åbninger: <span id="totalWeekCount">0</span></p>
-        <p>Gennemsnitlig åbningstid: <span id="averageWeek">00:00:00</span></p>
+        <h3>Aktuel åbning</h3>
+        <p>Varighed: <span id="currentOpeningDuration">00:00:00</span></p>
       </div>
+      
+      <!-- Time since last open -->
       <div class="stat-group">
-        <h3>Dag</h3>
-        <p>Antal åbninger: <span id="totalDayCount">0</span></p>
-        <p>Gennemsnitlig åbningstid: <span id="averageDay">00:00:00</span></p>
+        <h3>Siden sidst åbnet</h3>
+        <p>Tid: <span id="timeSinceLastOpen">00:00:00</span></p>
       </div>
     </div>
     
@@ -318,7 +340,7 @@
       <div id="logEntries"></div>
     </div>
     
-    <!-- Place Enable Audio button below the log -->
+    <!-- Enable Audio button moved below the log -->
     <button id="enableAudioBtn" class="enable-audio-btn">Aktivér alarm-lyd</button>
   </div>
 
