@@ -16,6 +16,30 @@ body {
 
 /* The rest remains the same as before */
 
+.stat-sub-group-container{
+display: grid;
+grid-template-columns: repeat(2, 1fr);
+gap: 24px;
+}
+
+.stat-sub-group{
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+}
+
+.stat-counter{
+  font-size: 18px;
+  font-weight: 700;
+  color: #FAFAFA
+}
+
+.stat-description{
+  font-size: 12px;
+  font-weight: 300;
+  color: #d1d1d1;
+}
+
 .monitor-container {
   max-width: 700px;
   width: 100%;
