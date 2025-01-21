@@ -90,7 +90,6 @@ h1 {
   padding: 12px;
   text-align: center;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
-  gap: 4px;
 }
 
 .stat-group:hover {
@@ -107,6 +106,7 @@ h1 {
 .stat-group p {
   font-size: 0.9rem;
   color: #ddd;
+  margin: 4px 0px;
 }
 
 /* Log Box with scrolling */
