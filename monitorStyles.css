@@ -55,14 +55,13 @@ h1 {
   margin-bottom: 8px;
 }
 
-/* Log Box */
+/* Log Box: fixed height with scrolling */
 .log-box {
   background: #2f2f2f;
   border: 2px solid #444;
   border-radius: 8px;
   padding: 16px;
-  /* set a max-height and enable scrolling */
-  max-height: 250px;
+  max-height: 250px; /* Adjust height as needed; roughly 5 entries */
   overflow-y: auto;
 }
 .log-box h2 {
@@ -70,7 +69,6 @@ h1 {
   margin-bottom: 8px;
   font-size: 1.2rem;
 }
-
 #logEntries > div {
   background: #3f3f3f;
   border-radius: 4px;
