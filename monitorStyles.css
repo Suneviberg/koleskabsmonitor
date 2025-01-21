@@ -29,7 +29,7 @@ h1 {
 
 /* Status Box */
 .status-box {
-  background: #2f2f2f;
+  background: #33cc00; /* Default to Lukket color */
   border: 2px solid #444;
   border-radius: 8px;
   padding: 16px;
@@ -76,7 +76,7 @@ h1 {
   border: 2px solid #444;
   border-radius: 8px;
   padding: 16px;
-  max-height: 250px;  /* Adjust height for roughly 5 entries */
+  max-height: 250px;  /* Approximately 5 entries */
   overflow-y: auto;
   margin-bottom: 20px;
 }
