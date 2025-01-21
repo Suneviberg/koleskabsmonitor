@@ -37,7 +37,7 @@
     let monitorInterval = null; // for local stopwatch when fridge is open
     let currentOpenStart = 0;
     
-    // Array to hold log entries (for statistics)
+    // Array to hold log entries for statistics
     let allLogs = [];
     
     // Statistics variables
@@ -51,23 +51,21 @@
     
     document.addEventListener('DOMContentLoaded', () => {
       const currentStatusEl = document.getElementById('currentStatus');
+      const statusBox = document.querySelector('.status-box'); // Our box we want to color
       const logEntriesEl = document.getElementById('logEntries');
       
       // Statistics elements
       const totalBoxCountEl = document.getElementById('totalAllCount');
       const totalBoxAvgEl   = document.getElementById('averageAllTime');
-      
       const monthBoxCountEl = document.getElementById('totalMonthCount');
       const monthBoxAvgEl   = document.getElementById('averageMonth');
-      
-      const weekBoxCountEl = document.getElementById('totalWeekCount');
-      const weekBoxAvgEl   = document.getElementById('averageWeek');
-      
-      const dayBoxCountEl = document.getElementById('totalDayCount');
-      const dayBoxAvgEl   = document.getElementById('averageDay');
+      const weekBoxCountEl  = document.getElementById('totalWeekCount');
+      const weekBoxAvgEl    = document.getElementById('averageWeek');
+      const dayBoxCountEl   = document.getElementById('totalDayCount');
+      const dayBoxAvgEl     = document.getElementById('averageDay');
       
       // Current opening duration and time since last open:
-      const currentOpenEl = document.getElementById('currentOpeningDuration');
+      const currentOpenEl   = document.getElementById('currentOpeningDuration');
       const timeSinceOpenEl = document.getElementById('timeSinceLastOpen');
       
       const db = window.FridgeDB.db;
@@ -92,7 +90,7 @@
         });
       });
       
-      // Listen for changes in current status
+      // Listen for changes to the current status from Firebase
       onValue(currentStatusRef, snapshot => {
         const val = snapshot.val();
         if (!val) {
@@ -102,13 +100,17 @@
           return;
         }
         currentStatusEl.textContent = val.isOpen ? "Åbent" : "Lukket";
+        // Update the background color of status-box based on status:
         if (val.isOpen) {
-          // Use the provided startTime if available
+          // When open, set color to red (#cc0000)
+          statusBox.style.backgroundColor = "#cc0000";
           if (!currentOpenStart || currentOpenStart === 0) {
             currentOpenStart = val.startTime || Date.now();
             startMonitorWatch(alarmAudio);
           }
         } else {
+          // When closed, set color to green (#33cc00)
+          statusBox.style.backgroundColor = "#33cc00";
           stopMonitorWatch();
           stopAlarm(alarmAudio);
           updateTimeSinceLastOpen();
@@ -125,7 +127,7 @@
         updateStatistics();
       });
       
-      // Update dynamic fields (current opening duration and time since last open) every second
+      // Update dynamic stats every second
       setInterval(() => {
         if (document.getElementById('currentStatus').textContent === "Åbent" && currentOpenStart) {
           currentOpenEl.textContent = formatTime(Date.now() - currentOpenStart);
@@ -150,7 +152,7 @@
         const currentMonth = now.getMonth();
         const currentDate = now.getDate();
         
-        // For week, consider entries from the last 7 days
+        // For week: entries from the last 7 days
         const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         
         for (const entry of allLogs) {
@@ -227,11 +229,11 @@
     function addLogEntry(container, entry) {
       const div = document.createElement('div');
       const startStr = formatClockTime(new Date(entry.start));
-      const endStr   = formatClockTime(new Date(entry.end));
-      const durStr   = formatTime(entry.durationMs || 0);
+      const endStr = formatClockTime(new Date(entry.end));
+      const durStr = formatTime(entry.durationMs || 0);
       div.textContent = `Åbnet: ${startStr} - ${endStr} (Varighed: ${durStr})`;
       container.prepend(div);
-      // Update last log end time for "time since last open"
+      // Update last log end time
       lastLogEndTime = entry.end;
     }
     
@@ -247,7 +249,9 @@
       totalSeconds %= 3600;
       const minutes = Math.floor(totalSeconds / 60);
       const seconds = totalSeconds % 60;
-      return [hours, minutes, seconds].map(n => String(n).padStart(2, '0')).join(':');
+      return [hours, minutes, seconds]
+              .map(n => String(n).padStart(2, '0'))
+              .join(':');
     }
     
     function formatClockTime(dateObj) {
@@ -303,7 +307,7 @@
       <div id="logEntries"></div>
     </div>
     
-    <!-- Place "Enable Audio" button below the log -->
+    <!-- Place Enable Audio button below the log -->
     <button id="enableAudioBtn" class="enable-audio-btn">Aktivér alarm-lyd</button>
   </div>
 
