@@ -76,7 +76,7 @@ h1 {
   border: 2px solid #444;
   border-radius: 8px;
   padding: 16px;
-  max-height: 250px; /* Adjust height to show about 5 entries */
+  max-height: 250px;  /* Adjust height for roughly 5 entries */
   overflow-y: auto;
   margin-bottom: 20px;
 }
@@ -99,7 +99,7 @@ h1 {
 .enable-audio-btn {
   display: block;
   width: 150px;
-  margin: 0 auto;
+  margin: 10px auto;
   padding: 8px 16px;
   background-color: #555;
   border: none;
