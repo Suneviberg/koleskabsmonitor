@@ -10,7 +10,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
     import { getDatabase, ref, onValue, onChildAdded } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
 
-    // Firebase configuration (must be the same as in the detector)
+    // Firebase configuration (must match the Detector configuration)
     const firebaseConfig = {
       apiKey: "AIzaSyBk_0onk9XhXjEj6a7gLGunDAdRAuypOkw",
       authDomain: "fridgedetector.firebaseapp.com",
@@ -24,16 +24,17 @@
     // Initialize Firebase
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
-    window.FridgeDB = { db }; // Expose for our script below
+    window.FridgeDB = { db };
   </script>
 
   <!-- Main Monitor Script -->
   <script type="module">
     import { getDatabase, ref, onValue, onChildAdded } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
     
-    const ALARM_THRESHOLD_MS = 45000; // 45s threshold for the alarm
+    // Set the 45-second threshold for the alarm
+    const ALARM_THRESHOLD_MS = 45000;
     let alarmIsPlaying = false;
-    let monitorInterval = null;
+    let monitorInterval = null; // for local stopwatch when fridge is open
     let currentOpenStart = 0;
     
     // Array to hold log entries (for statistics)
@@ -52,7 +53,7 @@
       const currentStatusEl = document.getElementById('currentStatus');
       const logEntriesEl = document.getElementById('logEntries');
       
-      // Statistics elements inside each box:
+      // Statistics elements
       const totalBoxCountEl = document.getElementById('totalAllCount');
       const totalBoxAvgEl   = document.getElementById('averageAllTime');
       
@@ -65,17 +66,19 @@
       const dayBoxCountEl = document.getElementById('totalDayCount');
       const dayBoxAvgEl   = document.getElementById('averageDay');
       
+      // Current opening duration and time since last open:
       const currentOpenEl = document.getElementById('currentOpeningDuration');
       const timeSinceOpenEl = document.getElementById('timeSinceLastOpen');
-      
-      const alarmAudio = document.getElementById('monitorAlarm');
-      const enableAudioBtn = document.getElementById('enableAudioBtn');
       
       const db = window.FridgeDB.db;
       const currentStatusRef = ref(db, 'fridge/currentStatus');
       const logsRef = ref(db, 'fridge/logs');
       
-      // Enable audio via button click (unlocking audio)
+      // Alarm audio and Enable Audio button
+      const alarmAudio = document.getElementById('monitorAlarm');
+      const enableAudioBtn = document.getElementById('enableAudioBtn');
+      
+      // Enable audio unlocking via user click
       enableAudioBtn.addEventListener('click', () => {
         const oldVol = alarmAudio.volume;
         alarmAudio.volume = 0;
@@ -89,7 +92,7 @@
         });
       });
       
-      // Listen for current status changes
+      // Listen for changes in current status
       onValue(currentStatusRef, snapshot => {
         const val = snapshot.val();
         if (!val) {
@@ -100,7 +103,7 @@
         }
         currentStatusEl.textContent = val.isOpen ? "Åbent" : "Lukket";
         if (val.isOpen) {
-          // Use val.startTime if available
+          // Use the provided startTime if available
           if (!currentOpenStart || currentOpenStart === 0) {
             currentOpenStart = val.startTime || Date.now();
             startMonitorWatch(alarmAudio);
@@ -122,7 +125,7 @@
         updateStatistics();
       });
       
-      // Update dynamic fields every second
+      // Update dynamic fields (current opening duration and time since last open) every second
       setInterval(() => {
         if (document.getElementById('currentStatus').textContent === "Åbent" && currentOpenStart) {
           currentOpenEl.textContent = formatTime(Date.now() - currentOpenStart);
@@ -134,7 +137,7 @@
         }
       }, 1000);
       
-      // Update statistics elements function
+      // Update statistics function
       function updateStatistics() {
         // Reset counters
         countAll = 0; totalAll = 0;
@@ -144,10 +147,10 @@
         
         const now = new Date();
         const currentYear = now.getFullYear();
-        const currentMonth = now.getMonth(); // 0-indexed
+        const currentMonth = now.getMonth();
         const currentDate = now.getDate();
         
-        // For week, take entries from the last 7 days:
+        // For week, consider entries from the last 7 days
         const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         
         for (const entry of allLogs) {
@@ -170,17 +173,18 @@
             totalDay += entry.durationMs || 0;
           }
         }
-        totalBoxCountEl.textContent = countAll;
-        totalBoxAvgEl.textContent = countAll > 0 ? formatTime(totalAll / countAll) : "00:00:00";
         
-        monthBoxCountEl.textContent = countMonth;
-        monthBoxAvgEl.textContent = countMonth > 0 ? formatTime(totalMonth / countMonth) : "00:00:00";
+        document.getElementById('totalAllCount').textContent = countAll;
+        document.getElementById('averageAllTime').textContent = countAll > 0 ? formatTime(totalAll / countAll) : "00:00:00";
         
-        weekBoxCountEl.textContent = countWeek;
-        weekBoxAvgEl.textContent = countWeek > 0 ? formatTime(totalWeek / countWeek) : "00:00:00";
+        document.getElementById('totalMonthCount').textContent = countMonth;
+        document.getElementById('averageMonth').textContent = countMonth > 0 ? formatTime(totalMonth / countMonth) : "00:00:00";
         
-        dayBoxCountEl.textContent = countDay;
-        dayBoxAvgEl.textContent = countDay > 0 ? formatTime(totalDay / countDay) : "00:00:00";
+        document.getElementById('totalWeekCount').textContent = countWeek;
+        document.getElementById('averageWeek').textContent = countWeek > 0 ? formatTime(totalWeek / countWeek) : "00:00:00";
+        
+        document.getElementById('totalDayCount').textContent = countDay;
+        document.getElementById('averageDay').textContent = countDay > 0 ? formatTime(totalDay / countDay) : "00:00:00";
       }
     });
     
@@ -223,11 +227,11 @@
     function addLogEntry(container, entry) {
       const div = document.createElement('div');
       const startStr = formatClockTime(new Date(entry.start));
-      const endStr = formatClockTime(new Date(entry.end));
-      const durStr = formatTime(entry.durationMs || 0);
+      const endStr   = formatClockTime(new Date(entry.end));
+      const durStr   = formatTime(entry.durationMs || 0);
       div.textContent = `Åbnet: ${startStr} - ${endStr} (Varighed: ${durStr})`;
       container.prepend(div);
-      // Update last log end time
+      // Update last log end time for "time since last open"
       lastLogEndTime = entry.end;
     }
     
@@ -243,9 +247,7 @@
       totalSeconds %= 3600;
       const minutes = Math.floor(totalSeconds / 60);
       const seconds = totalSeconds % 60;
-      return [hours, minutes, seconds]
-              .map(n => String(n).padStart(2, '0'))
-              .join(':');
+      return [hours, minutes, seconds].map(n => String(n).padStart(2, '0')).join(':');
     }
     
     function formatClockTime(dateObj) {
@@ -266,7 +268,6 @@
     </div>
     
     <div class="stats-box">
-      <h2>Statistik</h2>
       <div class="stat-group">
         <h3>Alle</h3>
         <p>Antal åbninger: <span id="totalAllCount">0</span></p>
@@ -301,6 +302,9 @@
       <h2>Log</h2>
       <div id="logEntries"></div>
     </div>
+    
+    <!-- Place "Enable Audio" button below the log -->
+    <button id="enableAudioBtn" class="enable-audio-btn">Aktivér alarm-lyd</button>
   </div>
 
   <!-- Alarm audio (loop) for monitor -->
@@ -309,8 +313,5 @@
     <source src="https://actions.google.com/sounds/v1/alarms/alarm_clock.mp3" type="audio/mpeg">
     Din browser understøtter ikke afspilning af alarm-lyd.
   </audio>
-
-  <!-- Enable Audio Button -->
-  <button id="enableAudioBtn" class="enable-audio-btn">Aktivér alarm-lyd</button>
 </body>
 </html>
