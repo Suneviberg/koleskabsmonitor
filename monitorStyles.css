@@ -19,7 +19,7 @@ body {
 .monitor-container {
   max-width: 700px;
   width: 100%;
-  padding: 20px;
+  padding: 10px;
   /* If you want a semi-transparent background behind the content, you can add: */
   background-color: rgba(0, 0, 0, 0.5);
   border-radius: 8px;
