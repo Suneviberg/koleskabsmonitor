@@ -98,6 +98,26 @@ h1 {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
+.stat-group {
+  background: rgba(255, 255, 255, 0.1); /* a light overlay for each tile */
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  
+  /* New Flexbox properties for centering */
+  display: flex;
+  flex-direction: column;
+  align-items: center;    /* Horizontally centers the items */
+  justify-content: center; /* Vertically centers the items */
+}
+
+.stat-group h2,
+.stat-group p {
+  width: 100%;
+}
+
+
 .stat-big-box:hover {
   transform: translateY(-3px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
