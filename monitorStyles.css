@@ -1,6 +1,6 @@
 /* Set the background image for the entire page */
 body {
-  background-image: url("Koleskab.jpg");
+  background-image: url("Koleskab.jpg"); /* Ensure the image path is correct */
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -13,6 +13,7 @@ body {
   align-items: center;
 }
 
+/* Monitor container with semi-transparent background */
 .monitor-container {
   max-width: 700px;
   width: 100%;
@@ -29,7 +30,7 @@ h1 {
 
 /* Status Box */
 .status-box {
-  background: #1a6600; /* default color for 'lukket' */
+  background: #1a6600; /* Default 'Lukket' color */
   border: 2px solid #444;
   border-radius: 8px;
   padding: 16px;
@@ -56,7 +57,7 @@ h1 {
   margin-bottom: 20px;
 }
 
-/* iOS style slider in the "Big Box" */
+/* iOS style slider inside stat-big-box */
 .ios-slider {
   display: flex;
   justify-content: center;
@@ -66,7 +67,7 @@ h1 {
 
 .ios-toggle-btn {
   flex: 1;
-  background: rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.1);
   border: none;
   border-radius: 16px;
   padding: 8px 16px;
@@ -77,49 +78,19 @@ h1 {
 }
 
 .ios-toggle-btn:hover {
-  background: rgba(255,255,255,0.2);
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .ios-toggle-btn.active {
-  background: rgba(255,255,255,0.4);
+  background: rgba(255, 255, 255, 0.4);
   font-weight: bold;
-}
-
-/* Four columns for the big box data */
-.four-columns {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-}
-
-/* Each column box */
-.column-box {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  padding: 8px;
-  text-align: center;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.column-box:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-}
-
-.column-box h2 {
-  margin: 4px 0;
-  font-size: 1.3rem;
-  color: #fdfdfd;
-}
-.column-box p {
-  margin: 2px 0;
-  font-size: 0.8rem;
-  color: #ddd;
 }
 
 /* Big Box container */
 .stat-big-box {
+  display: grid;
   grid-column: span 2;
+  gap: 24px;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   padding: 12px;
@@ -144,66 +115,81 @@ h1 {
   margin: 4px 0;
 }
 
-/* The existing stat-sub-group styles, etc. */
+/* Four columns for the big box data */
+.four-columns {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr); /* Four equal columns */
+  gap: 8px; /* Space between columns */
+}
+
+/* Each column box */
+.column-box {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 8px;
+  text-align: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.column-box:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.column-box h2 {
+  margin: 4px 0;
+  font-size: 1.3rem;
+  color: #fdfdfd;
+}
+
+.column-box p {
+  margin: 2px 0;
+  font-size: 0.8rem;
+  color: #ddd;
+}
+
+/* Existing stat-sub-group styles */
 .stat-sub-group-container {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 24px;
 }
+
 .stat-sub-group {
   display: flex;
   flex-direction: column;
   gap: 0px;
 }
+
 .stat-counter {
   font-weight: 700;
   color: #FAFAFA;
-  margin: 0px!important;
+  margin: 0px !important;
 }
+
 .stat-description {
-  font-size: 12px!important;
+  font-size: 12px !important;
   font-weight: 300;
   color: #d1d1d1;
 }
 
-/* Basic tile styles */
-.stat-group {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  padding: 12px;
-  text-align: center;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-.stat-group:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-}
-.stat-group h3 {
-  margin-bottom: 8px;
-  font-size: 1.1rem;
-  color: #fdfdfd;
-}
-.stat-group p {
-  font-size: 0.9rem;
-  color: #ddd;
-  margin: 4px 0;
-}
-
-/* Log box */
+/* Log Box with scrolling */
 .log-box {
   background: #2f2f2f;
   border: 2px solid #444;
   border-radius: 8px;
   padding: 16px;
-  max-height: 250px; 
+  max-height: 250px; /* Approximately 5 entries visible */
   overflow-y: auto;
   margin-bottom: 20px;
 }
+
 .log-box h2 {
   text-align: center;
   margin-bottom: 8px;
   font-size: 1.2rem;
 }
+
 #logEntries > div {
   background: #3f3f3f;
   border-radius: 4px;
@@ -212,7 +198,40 @@ h1 {
   white-space: pre-line;
 }
 
-/* Audio button */
+/* Four columns in Big Box */
+.four-columns {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+/* Column Box Styles */
+.column-box {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 8px;
+  text-align: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.column-box:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.column-box h2 {
+  margin: 4px 0;
+  font-size: 1.3rem;
+  color: #fdfdfd;
+}
+
+.column-box p {
+  margin: 2px 0;
+  font-size: 0.8rem;
+  color: #ddd;
+}
+
+/* Enable Audio Button */
 .enable-audio-btn {
   display: block;
   width: 150px;
@@ -227,6 +246,20 @@ h1 {
   text-align: center;
   transition: background-color 0.2s;
 }
+
 .enable-audio-btn:hover {
   background-color: #666;
+}
+
+/* Responsive Adjustments (Optional) */
+@media (max-width: 768px) {
+  .four-columns {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .four-columns {
+    grid-template-columns: 1fr;
+  }
 }
