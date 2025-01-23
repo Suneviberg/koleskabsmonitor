@@ -1,10 +1,9 @@
 /* Set the background image for the entire page */
 body {
-  background-image: url("Koleskab.jpg"); /* Make sure Koleskab.png is in the same directory (or update the path if stored elsewhere) */
+  background-image: url("Koleskab.jpg");
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  /* Optionally, you can add a fallback background color */
   background-color: #000;
   color: #fff;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -14,16 +13,114 @@ body {
   align-items: center;
 }
 
-/* The rest remains the same as before */
-
-.stat-big-box{
-  display: grid;
-  grid-column: span 2;
-  gap: 24px; 
+.monitor-container {
+  max-width: 700px;
+  width: 100%;
+  padding: 10px;
+  background-color: rgba(0, 0, 0, 0.5);
+  border-radius: 8px;
+  backdrop-filter: blur(10px);
 }
 
+h1 {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+/* Status Box */
+.status-box {
+  background: #1a6600; /* default color for 'lukket' */
+  border: 2px solid #444;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.status-box h2,
+.status-box h3 {
+  margin-bottom: 8px;
+  font-size: 1.2rem;
+}
+
+/* Stats Box (main container) */
+.stats-box {
+  background: rgba(51, 51, 51, 0.85);
+  border: none;
+  border-radius: 12px;
+  padding: 20px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  margin-bottom: 20px;
+}
+
+/* iOS style slider in the "Big Box" */
+.ios-slider {
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+  margin-bottom: 10px;
+}
+
+.ios-toggle-btn {
+  flex: 1;
+  background: rgba(255,255,255,0.1);
+  border: none;
+  border-radius: 16px;
+  padding: 8px 16px;
+  color: #fff;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.2s, font-weight 0.2s;
+}
+
+.ios-toggle-btn:hover {
+  background: rgba(255,255,255,0.2);
+}
+
+.ios-toggle-btn.active {
+  background: rgba(255,255,255,0.4);
+  font-weight: bold;
+}
+
+/* Four columns for the big box data */
+.four-columns {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+/* Each column box */
+.column-box {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 8px;
+  text-align: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.column-box:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.column-box h2 {
+  margin: 4px 0;
+  font-size: 1.3rem;
+  color: #fdfdfd;
+}
+.column-box p {
+  margin: 2px 0;
+  font-size: 0.8rem;
+  color: #ddd;
+}
+
+/* Big Box container */
 .stat-big-box {
-  background: rgba(255, 255, 255, 0.1); /* a light overlay for each tile */
+  grid-column: span 2;
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   padding: 12px;
   text-align: center;
@@ -44,119 +141,69 @@ body {
 .stat-big-box p {
   font-size: 0.9rem;
   color: #ddd;
-  margin: 4px 0px;
+  margin: 4px 0;
 }
 
-.stat-sub-group-container{
+/* The existing stat-sub-group styles, etc. */
+.stat-sub-group-container {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 24px;
 }
-
-.stat-sub-group{
+.stat-sub-group {
   display: flex;
   flex-direction: column;
   gap: 0px;
 }
-
-.stat-counter{
+.stat-counter {
   font-weight: 700;
   color: #FAFAFA;
-  margin: 0px 0px!important;
+  margin: 0px!important;
 }
-
-.stat-description{
+.stat-description {
   font-size: 12px!important;
   font-weight: 300;
   color: #d1d1d1;
 }
 
-.monitor-container {
-  max-width: 700px;
-  width: 100%;
-  padding: 10px;
-  /* If you want a semi-transparent background behind the content, you can add: */
-  background-color: rgba(0, 0, 0, 0.5);
-  border-radius: 8px;
-  backdrop-filter: blur(10px);
-}
-
-h1 {
-  text-align: center;
-  margin-bottom: 20px;
-}
-
-/* Status Box */
-.status-box {
-  /* When in Lukket state, the Detector (and Monitor JS) set the background dynamically.
-     For default, we can use Lukket color */
-  background: #1a6600;
-  border: 2px solid #444;
-  border-radius: 8px;
-  padding: 16px;
-  margin-bottom: 20px;
-  text-align: center;
-}
-
-.status-box h2 {
-  margin-bottom: 8px;
-  font-size: 1.2rem;
-}
-
-/* Statistics Box */
-.stats-box {
-  background: rgba(51, 51, 51, 0.85); /* slightly transparent dark background */
-  border: none;
-  border-radius: 12px;
-  padding: 20px;
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-}
-
+/* Basic tile styles */
 .stat-group {
-  background: rgba(255, 255, 255, 0.1); /* a light overlay for each tile */
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   padding: 12px;
   text-align: center;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
-
 .stat-group:hover {
   transform: translateY(-3px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
 }
-
 .stat-group h3 {
   margin-bottom: 8px;
   font-size: 1.1rem;
   color: #fdfdfd;
 }
-
 .stat-group p {
   font-size: 0.9rem;
   color: #ddd;
-  margin: 4px 0px;
+  margin: 4px 0;
 }
 
-/* Log Box with scrolling */
+/* Log box */
 .log-box {
   background: #2f2f2f;
   border: 2px solid #444;
   border-radius: 8px;
   padding: 16px;
-  max-height: 250px;  /* Approximately 5 entries visible */
+  max-height: 250px; 
   overflow-y: auto;
   margin-bottom: 20px;
 }
-
 .log-box h2 {
   text-align: center;
   margin-bottom: 8px;
   font-size: 1.2rem;
 }
-
 #logEntries > div {
   background: #3f3f3f;
   border-radius: 4px;
@@ -165,7 +212,7 @@ h1 {
   white-space: pre-line;
 }
 
-/* Enable Audio Button */
+/* Audio button */
 .enable-audio-btn {
   display: block;
   width: 150px;
@@ -180,7 +227,6 @@ h1 {
   text-align: center;
   transition: background-color 0.2s;
 }
-
 .enable-audio-btn:hover {
   background-color: #666;
 }
