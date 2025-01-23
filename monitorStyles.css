@@ -50,7 +50,7 @@ h1 {
   border: none;
   border-radius: 12px;
   padding: 20px;
-  display: grid;
+  display: grid; /* 2 columns for older stats and the Big Box side by side */
   grid-template-columns: repeat(2, 1fr);
   gap: 16px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
@@ -98,26 +98,6 @@ h1 {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.stat-group {
-  background: rgba(255, 255, 255, 0.1); /* a light overlay for each tile */
-  border-radius: 8px;
-  padding: 12px;
-  text-align: center;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  
-  /* New Flexbox properties for centering */
-  display: flex;
-  flex-direction: column;
-  align-items: center;    /* Horizontally centers the items */
-  justify-content: center; /* Vertically centers the items */
-}
-
-.stat-group h2,
-.stat-group p {
-  width: 100%;
-}
-
-
 .stat-big-box:hover {
   transform: translateY(-3px);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
@@ -135,11 +115,11 @@ h1 {
   margin: 4px 0;
 }
 
-/* Four columns for the big box data */
+/* Four columns in the Big Box data */
 .four-columns {
   display: grid;
   grid-template-columns: repeat(4, 1fr); /* Four equal columns */
-  gap: 8px; /* Space between columns */
+  gap: 8px;
 }
 
 /* Each column box */
@@ -168,87 +148,86 @@ h1 {
   color: #ddd;
 }
 
-/* Existing stat-sub-group styles */
+/* stat-group tiles */
+.stat-group {
+  background: rgba(255, 255, 255, 0.1); 
+  border-radius: 8px;
+  padding: 12px;
+  text-align: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  
+  /* Centering if you want it vertical & horizontal */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.stat-group:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.stat-group h2,
+.stat-group p {
+  width: 100%;
+}
+
+.stat-group h3 {
+  margin-bottom: 8px;
+  font-size: 1.1rem;
+  color: #fdfdfd;
+}
+
+.stat-group p {
+  font-size: 0.9rem;
+  color: #ddd;
+  margin: 4px 0;
+}
+
+/* stat-sub-group, if used for “Måned” etc. */
 .stat-sub-group-container {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 24px;
 }
-
 .stat-sub-group {
   display: flex;
   flex-direction: column;
   gap: 0px;
 }
-
 .stat-counter {
   font-weight: 700;
   color: #FAFAFA;
-  margin: 0px !important;
+  margin: 0 !important;
 }
-
 .stat-description {
   font-size: 12px !important;
   font-weight: 300;
   color: #d1d1d1;
 }
 
-/* Log Box with scrolling */
+/* Log box */
 .log-box {
   background: #2f2f2f;
   border: 2px solid #444;
   border-radius: 8px;
   padding: 16px;
-  max-height: 250px; /* Approximately 5 entries visible */
+  max-height: 250px; 
   overflow-y: auto;
   margin-bottom: 20px;
 }
-
 .log-box h2 {
   text-align: center;
   margin-bottom: 8px;
   font-size: 1.2rem;
 }
-
 #logEntries > div {
   background: #3f3f3f;
   border-radius: 4px;
   padding: 6px 8px;
   margin-bottom: 10px;
   white-space: pre-line;
-}
-
-/* Four columns in Big Box */
-.four-columns {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-}
-
-/* Column Box Styles */
-.column-box {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  padding: 8px;
-  text-align: center;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.column-box:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-}
-
-.column-box h2 {
-  margin: 4px 0;
-  font-size: 1.3rem;
-  color: #fdfdfd;
-}
-
-.column-box p {
-  margin: 2px 0;
-  font-size: 0.8rem;
-  color: #ddd;
 }
 
 /* Enable Audio Button */
@@ -266,7 +245,6 @@ h1 {
   text-align: center;
   transition: background-color 0.2s;
 }
-
 .enable-audio-btn:hover {
   background-color: #666;
 }
