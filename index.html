@@ -258,9 +258,7 @@
         }
 
         // 2) Check alarmActivations for toggles
-        // Each time alarm was triggered, we see if it belongs in all / month / week / day
         for(const ts of alarmActivations){
-          // "All"
           alarmTogglesAll++;
           const aDate= new Date(ts);
 
@@ -284,7 +282,7 @@
         avgOpenWeek  = openCountWeek  ? (totalDurWeek / openCountWeek) : 0;
         avgOpenDay   = openCountDay   ? (totalDurDay / openCountDay) : 0;
 
-        // 4) Update older stats
+        // 4) Update older stats (still calculated, but we will hide them)
         totalBoxCountEl.textContent= countAll;
         totalBoxAvgEl.textContent= countAll>0 ? formatTime(totalAll/countAll) : "00:00:00";
 
@@ -355,7 +353,7 @@
     }
     function startAlarm(alarmAudio){
       alarmIsPlaying=true;
-      // Here we record that alarm toggled, storing the timestamp
+      // record alarm toggle
       alarmActivations.push(Date.now());
 
       try{
@@ -459,35 +457,37 @@
         </div>
       </div>
 
-      <!-- Old tiles: “Alle,” “Måned,” “Uge,” “Dag” if you still want them -->
-      <div class="stat-group">
-        <h3>Alle</h3>
-        <p>Antal åbninger: <span id="totalAllCount">0</span></p>
-        <p>Gennemsnitlig åbningstid: <span id="averageAllTime">00:00:00</span></p>
-      </div>
-      <div class="stat-group">
-        <h3>Måned</h3>
-        <div class="stat-sub-group-container">
-          <div class="stat-sub-group">
-            <h2 class="stat-counter"><span id="totalMonthCount">0</span></h2>
-            <p class="stat-description">Åbninger</p>
-          </div>
-          <div class="stat-sub-group">
-            <h2 class="stat-counter"><span id="averageMonth">00:00:00</span></h2>
-            <p class="stat-description">Gns. Åbningstid</p>
-          </div>
-        </div>   
-      </div>
-      <div class="stat-group">
-        <h3>Uge</h3>
-        <p>Antal åbninger: <span id="totalWeekCount">0</span></p>
-        <p>Gennemsnitlig åbningstid: <span id="averageWeek">00:00:00</span></p>
-      </div>
-      <div class="stat-group">
-        <h3>Dag</h3>
-        <p>Antal åbninger: <span id="totalDayCount">0</span></p>
-        <p>Gennemsnitlig åbningstid: <span id="averageDay">00:00:00</span></p>
-      </div>
+      <!-- Hide old stat-group boxes -->
+      <div style="display: none;">
+        <div class="stat-group">
+          <h3>Alle</h3>
+          <p>Antal åbninger: <span id="totalAllCount">0</span></p>
+          <p>Gennemsnitlig åbningstid: <span id="averageAllTime">00:00:00</span></p>
+        </div>
+        <div class="stat-group">
+          <h3>Måned</h3>
+          <div class="stat-sub-group-container">
+            <div class="stat-sub-group">
+              <h2 class="stat-counter"><span id="totalMonthCount">0</span></h2>
+              <p class="stat-description">Åbninger</p>
+            </div>
+            <div class="stat-sub-group">
+              <h2 class="stat-counter"><span id="averageMonth">00:00:00</span></h2>
+              <p class="stat-description">Gns. Åbningstid</p>
+            </div>
+          </div>   
+        </div>
+        <div class="stat-group">
+          <h3>Uge</h3>
+          <p>Antal åbninger: <span id="totalWeekCount">0</span></p>
+          <p>Gennemsnitlig åbningstid: <span id="averageWeek">00:00:00</span></p>
+        </div>
+        <div class="stat-group">
+          <h3>Dag</h3>
+          <p>Antal åbninger: <span id="totalDayCount">0</span></p>
+          <p>Gennemsnitlig åbningstid: <span id="averageDay">00:00:00</span></p>
+        </div>
+      </div> <!-- end hidden old stats -->
     </div> <!-- end .stats-box -->
 
     <!-- The Log box -->
