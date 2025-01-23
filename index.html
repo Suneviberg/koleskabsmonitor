@@ -10,7 +10,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
     import { getDatabase, ref, onValue, onChildAdded } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
 
-    // Firebase configuration (must match the Detector configuration)
+    // Firebase configuration
     const firebaseConfig = {
       apiKey: "AIzaSyBk_0onk9XhXjEj6a7gLGunDAdRAuypOkw",
       authDomain: "fridgedetector.firebaseapp.com",
@@ -31,52 +31,67 @@
   <script type="module">
     import { getDatabase, ref, onValue, onChildAdded } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
     
-    // Set the 45-second threshold for the alarm
+    // Alarm threshold (45s)
     const ALARM_THRESHOLD_MS = 45000;
     let alarmIsPlaying = false;
-    let monitorInterval = null; // for local stopwatch when fridge is open
+    let monitorInterval = null; 
     let currentOpenStart = 0;
     
-    // Array to hold log entries for statistics
+    // All logs
     let allLogs = [];
     
-    // Statistics variables
+    // We'll store alarm toggles, longest opening, etc. for each scope: "all", "month", "week", "day"
+    let openCountAll = 0, alarmTogglesAll = 0, longestOpenAll = 0, avgOpenAll = 0;
+    let openCountMonth = 0, alarmTogglesMonth = 0, longestOpenMonth = 0, avgOpenMonth = 0;
+    let openCountWeek = 0, alarmTogglesWeek = 0, longestOpenWeek = 0, avgOpenWeek = 0;
+    let openCountDay = 0, alarmTogglesDay = 0, longestOpenDay = 0, avgOpenDay = 0;
+
+    // For existing stats
     let countAll = 0, totalAll = 0;
     let countMonth = 0, totalMonth = 0;
     let countWeek = 0, totalWeek = 0;
     let countDay = 0, totalDay = 0;
-    
-    // For tracking the last closing timestamp (for "time since last open")
+
+    // For "time since last open"
     let lastLogEndTime = 0;
-    
+
+    // The current selection for the iOS-style slider
+    let currentScope = "all"; // one of ["all","month","week","day"]
+
     document.addEventListener('DOMContentLoaded', () => {
-      const currentStatusEl = document.getElementById('currentStatus');
-      const statusBox = document.querySelector('.status-box'); // Our box we want to color
-      const logEntriesEl = document.getElementById('logEntries');
+      const currentStatusEl  = document.getElementById('currentStatus');
+      const statusBox        = document.querySelector('.status-box');
+      const logEntriesEl     = document.getElementById('logEntries');
       
-      // Statistics elements
-      const totalBoxCountEl = document.getElementById('totalAllCount');
-      const totalBoxAvgEl   = document.getElementById('averageAllTime');
-      const monthBoxCountEl = document.getElementById('totalMonthCount');
-      const monthBoxAvgEl   = document.getElementById('averageMonth');
-      const weekBoxCountEl  = document.getElementById('totalWeekCount');
-      const weekBoxAvgEl    = document.getElementById('averageWeek');
-      const dayBoxCountEl   = document.getElementById('totalDayCount');
-      const dayBoxAvgEl     = document.getElementById('averageDay');
+      // Existing stats references (not in big box)
+      const totalBoxCountEl  = document.getElementById('totalAllCount');
+      const totalBoxAvgEl    = document.getElementById('averageAllTime');
+      const monthBoxCountEl  = document.getElementById('totalMonthCount');
+      const monthBoxAvgEl    = document.getElementById('averageMonth');
+      const weekBoxCountEl   = document.getElementById('totalWeekCount');
+      const weekBoxAvgEl     = document.getElementById('averageWeek');
+      const dayBoxCountEl    = document.getElementById('totalDayCount');
+      const dayBoxAvgEl      = document.getElementById('averageDay');
       
-      // Current opening duration and time since last open:
-      const currentOpenEl   = document.getElementById('currentOpeningDuration');
-      const timeSinceOpenEl = document.getElementById('timeSinceLastOpen');
+      const currentOpenEl    = document.getElementById('currentOpeningDuration');
+      const timeSinceOpenEl  = document.getElementById('timeSinceLastOpen');
       
-      const db = window.FridgeDB.db;
-      const currentStatusRef = ref(db, 'fridge/currentStatus');
-      const logsRef = ref(db, 'fridge/logs');
+      // Big box iOS-style slider references
+      const iosToggleAll   = document.getElementById('iosToggleAll');
+      const iosToggleMonth = document.getElementById('iosToggleMonth');
+      const iosToggleWeek  = document.getElementById('iosToggleWeek');
+      const iosToggleDay   = document.getElementById('iosToggleDay');
+
+      // The 4 columns in the big box
+      const bigBoxOpenings   = document.getElementById('bigBoxOpenings');
+      const bigBoxAlarm      = document.getElementById('bigBoxAlarmToggles');
+      const bigBoxLongest    = document.getElementById('bigBoxLongestOpen');
+      const bigBoxAvg        = document.getElementById('bigBoxAvgOpen');
+
+      // Alarm audio + button
+      const alarmAudio       = document.getElementById('monitorAlarm');
+      const enableAudioBtn   = document.getElementById('enableAudioBtn');
       
-      // Alarm audio and Enable Audio button
-      const alarmAudio = document.getElementById('monitorAlarm');
-      const enableAudioBtn = document.getElementById('enableAudioBtn');
-      
-      // Enable audio unlocking via user click
       enableAudioBtn.addEventListener('click', () => {
         const oldVol = alarmAudio.volume;
         alarmAudio.volume = 0;
@@ -89,8 +104,45 @@
           console.warn("Monitor audio unlock failed:", err);
         });
       });
+
+      // iOS slider event listeners
+      iosToggleAll.addEventListener('click', () => { 
+        currentScope = "all";
+        updateScopeButtons();
+        updateBigBoxDisplay();
+      });
+      iosToggleMonth.addEventListener('click', () => { 
+        currentScope = "month";
+        updateScopeButtons();
+        updateBigBoxDisplay();
+      });
+      iosToggleWeek.addEventListener('click', () => { 
+        currentScope = "week";
+        updateScopeButtons();
+        updateBigBoxDisplay();
+      });
+      iosToggleDay.addEventListener('click', () => {
+        currentScope = "day";
+        updateScopeButtons();
+        updateBigBoxDisplay();
+      });
+
+      function updateScopeButtons() {
+        iosToggleAll.classList.remove('active');
+        iosToggleMonth.classList.remove('active');
+        iosToggleWeek.classList.remove('active');
+        iosToggleDay.classList.remove('active');
+        if (currentScope === "all")   iosToggleAll.classList.add('active');
+        if (currentScope === "month") iosToggleMonth.classList.add('active');
+        if (currentScope === "week")  iosToggleWeek.classList.add('active');
+        if (currentScope === "day")   iosToggleDay.classList.add('active');
+      }
+
+      const db = window.FridgeDB.db;
+      const currentStatusRef = ref(db, 'fridge/currentStatus');
+      const logsRef          = ref(db, 'fridge/logs');
       
-      // Listen for changes to the current status from Firebase
+      // Current status
       onValue(currentStatusRef, snapshot => {
         const val = snapshot.val();
         if (!val) {
@@ -100,17 +152,14 @@
           return;
         }
         currentStatusEl.textContent = val.isOpen ? "Åbent" : "Lukket";
-        // Update the background color of status-box based on status:
         if (val.isOpen) {
-          // When open, set color to red (#cc0000)
-          statusBox.style.backgroundColor = "#660000";
-          if (!currentOpenStart || currentOpenStart === 0) {
+          statusBox.style.backgroundColor = "#660000"; // open color
+          if (!currentOpenStart) {
             currentOpenStart = val.startTime || Date.now();
             startMonitorWatch(alarmAudio);
           }
         } else {
-          // When closed, set color to green (#1a6600)
-          statusBox.style.backgroundColor = "#1a6600";
+          statusBox.style.backgroundColor = "#1a6600"; // closed color
           stopMonitorWatch();
           stopAlarm(alarmAudio);
           updateTimeSinceLastOpen();
@@ -118,7 +167,7 @@
         }
       });
       
-      // Listen for new log entries
+      // Logs
       onChildAdded(logsRef, snapshot => {
         const entry = snapshot.val();
         if (!entry) return;
@@ -127,69 +176,130 @@
         updateStatistics();
       });
       
-      // Update dynamic stats every second
+      // Update dynamic fields every second
       setInterval(() => {
-        if (document.getElementById('currentStatus').textContent === "Åbent" && currentOpenStart) {
+        if (currentStatusEl.textContent === "Åbent" && currentOpenStart) {
           currentOpenEl.textContent = formatTime(Date.now() - currentOpenStart);
         } else {
           currentOpenEl.textContent = "00:00:00";
         }
-        if (document.getElementById('currentStatus').textContent === "Lukket" && lastLogEndTime) {
+        if (currentStatusEl.textContent === "Lukket" && lastLogEndTime) {
           updateTimeSinceLastOpen();
         }
       }, 1000);
       
-      // Update statistics function
       function updateStatistics() {
+        // We'll fill in the "alarm toggles" as placeholders (0). 
+        // If you track alarm triggers in logs, you can parse them.
+        
+        // For now, we also show "Longest open" by finding max entry duration.
+        // We'll compute for total, month, week, day.
+        
         // Reset counters
-        countAll = 0; totalAll = 0;
-        countMonth = 0; totalMonth = 0;
-        countWeek = 0; totalWeek = 0;
-        countDay = 0; totalDay = 0;
-        
+        openCountAll = 0;  alarmTogglesAll = 0;   longestOpenAll = 0;   avgOpenAll = 0;
+        openCountMonth = 0;alarmTogglesMonth = 0; longestOpenMonth = 0; avgOpenMonth = 0;
+        openCountWeek = 0; alarmTogglesWeek = 0;  longestOpenWeek = 0;  avgOpenWeek = 0;
+        openCountDay = 0;  alarmTogglesDay = 0;   longestOpenDay = 0;   avgOpenDay = 0;
+
+        let totalDurAll = 0;
+        let totalDurMonth = 0;
+        let totalDurWeek  = 0;
+        let totalDurDay   = 0;
+
         const now = new Date();
-        const currentYear = now.getFullYear();
+        const currentYear  = now.getFullYear();
         const currentMonth = now.getMonth();
-        const currentDate = now.getDate();
-        
-        // For week: entries from the last 7 days
-        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        
+        const currentDate  = now.getDate();
+        const weekAgo      = new Date(now.getTime() - 7 * 86400000);
+
         for (const entry of allLogs) {
-          countAll++;
-          totalAll += entry.durationMs || 0;
+          // "All"
+          openCountAll++;
+          totalDurAll += entry.durationMs || 0;
+          if (entry.durationMs > longestOpenAll) {
+            longestOpenAll = entry.durationMs;
+          }
+          // alarm toggles are placeholder
           
-          const entryDate = new Date(entry.start);
-          if (entryDate.getFullYear() === currentYear && entryDate.getMonth() === currentMonth) {
-            countMonth++;
-            totalMonth += entry.durationMs || 0;
+          const eDate = new Date(entry.start);
+          // "Month"
+          if (eDate.getFullYear() === currentYear && eDate.getMonth() === currentMonth) {
+            openCountMonth++;
+            totalDurMonth += entry.durationMs || 0;
+            if (entry.durationMs > longestOpenMonth) {
+              longestOpenMonth = entry.durationMs;
+            }
           }
-          if (entryDate >= weekAgo) {
-            countWeek++;
-            totalWeek += entry.durationMs || 0;
+          // "Week"
+          if (eDate >= weekAgo) {
+            openCountWeek++;
+            totalDurWeek += entry.durationMs || 0;
+            if (entry.durationMs > longestOpenWeek) {
+              longestOpenWeek = entry.durationMs;
+            }
           }
-          if (entryDate.getFullYear() === currentYear &&
-              entryDate.getMonth() === currentMonth &&
-              entryDate.getDate() === currentDate) {
-            countDay++;
-            totalDay += entry.durationMs || 0;
+          // "Day"
+          if (eDate.getFullYear() === currentYear && eDate.getMonth() === currentMonth && eDate.getDate() === currentDate) {
+            openCountDay++;
+            totalDurDay += entry.durationMs || 0;
+            if (entry.durationMs > longestOpenDay) {
+              longestOpenDay = entry.durationMs;
+            }
           }
         }
+        // compute avg
+        avgOpenAll   = openCountAll ? totalDurAll / openCountAll   : 0;
+        avgOpenMonth = openCountMonth ? totalDurMonth / openCountMonth : 0;
+        avgOpenWeek  = openCountWeek  ? totalDurWeek / openCountWeek   : 0;
+        avgOpenDay   = openCountDay   ? totalDurDay / openCountDay     : 0;
+
+        // update old fields
+        // (some original fields referencing totalAll, etc.)
+        // We can still maintain them for backward compatibility if you want
+        // or we can remove them.
         
-        document.getElementById('totalAllCount').textContent = countAll;
-        document.getElementById('averageAllTime').textContent = countAll > 0 ? formatTime(totalAll / countAll) : "00:00:00";
-        
-        document.getElementById('totalMonthCount').textContent = countMonth;
-        document.getElementById('averageMonth').textContent = countMonth > 0 ? formatTime(totalMonth / countMonth) : "00:00:00";
-        
-        document.getElementById('totalWeekCount').textContent = countWeek;
-        document.getElementById('averageWeek').textContent = countWeek > 0 ? formatTime(totalWeek / countWeek) : "00:00:00";
-        
-        document.getElementById('totalDayCount').textContent = countDay;
-        document.getElementById('averageDay').textContent = countDay > 0 ? formatTime(totalDay / countDay) : "00:00:00";
+        // update the big box if the user is on that scope
+        updateBigBoxDisplay();
+      }
+
+      function updateBigBoxDisplay() {
+        const bigBoxOpenings  = document.getElementById('bigBoxOpenings');
+        const bigBoxAlarm     = document.getElementById('bigBoxAlarmToggles');
+        const bigBoxLongest   = document.getElementById('bigBoxLongestOpen');
+        const bigBoxAvg       = document.getElementById('bigBoxAvgOpen');
+
+        let oc = 0, at = 0, lo = 0, avg = 0;
+
+        if (currentScope === "all") {
+          oc  = openCountAll;
+          at  = alarmTogglesAll;
+          lo  = longestOpenAll;
+          avg = avgOpenAll;
+        } else if (currentScope === "month") {
+          oc  = openCountMonth;
+          at  = alarmTogglesMonth;
+          lo  = longestOpenMonth;
+          avg = avgOpenMonth;
+        } else if (currentScope === "week") {
+          oc  = openCountWeek;
+          at  = alarmTogglesWeek;
+          lo  = longestOpenWeek;
+          avg = avgOpenWeek;
+        } else if (currentScope === "day") {
+          oc  = openCountDay;
+          at  = alarmTogglesDay;
+          lo  = longestOpenDay;
+          avg = avgOpenDay;
+        }
+
+        bigBoxOpenings.textContent  = oc.toString();
+        bigBoxAlarm.textContent     = at.toString();
+        bigBoxLongest.textContent   = formatTime(lo);
+        bigBoxAvg.textContent       = formatTime(avg);
       }
     });
-    
+
+    // watch + alarm logic
     function startMonitorWatch(alarmAudio) {
       if (monitorInterval) return;
       monitorInterval = setInterval(() => {
@@ -199,14 +309,12 @@
         }
       }, 500);
     }
-    
     function stopMonitorWatch() {
       if (monitorInterval) {
         clearInterval(monitorInterval);
         monitorInterval = null;
       }
     }
-    
     function startAlarm(alarmAudio) {
       alarmIsPlaying = true;
       try {
@@ -217,7 +325,6 @@
         console.warn("Monitor alarm exception:", err);
       }
     }
-    
     function stopAlarm(alarmAudio) {
       alarmIsPlaying = false;
       if (!alarmAudio.paused) {
@@ -225,43 +332,41 @@
         alarmAudio.currentTime = 0;
       }
     }
-    
+
+    // Add logs
     function addLogEntry(container, entry) {
       const div = document.createElement('div');
       const startStr = formatClockTime(new Date(entry.start));
-      const endStr = formatClockTime(new Date(entry.end));
-      const durStr = formatTime(entry.durationMs || 0);
+      const endStr   = formatClockTime(new Date(entry.end));
+      const durStr   = formatTime(entry.durationMs || 0);
       div.textContent = `Åbnet: ${startStr} - ${endStr} (Varighed: ${durStr})`;
       container.prepend(div);
-      // Update last log end time
       lastLogEndTime = entry.end;
     }
-    
     function updateTimeSinceLastOpen() {
       if (!lastLogEndTime) return;
       const elapsed = Date.now() - lastLogEndTime;
       document.getElementById('timeSinceLastOpen').textContent = formatTime(elapsed);
     }
-    
+
+    // formatting
     function formatTime(ms) {
       let totalSeconds = Math.floor(ms / 1000);
       const hours = Math.floor(totalSeconds / 3600);
       totalSeconds %= 3600;
       const minutes = Math.floor(totalSeconds / 60);
       const seconds = totalSeconds % 60;
-      return [hours, minutes, seconds]
-              .map(n => String(n).padStart(2, '0'))
-              .join(':');
+      return [hours, minutes, seconds].map(n => String(n).padStart(2, '0')).join(':');
     }
-    
     function formatClockTime(dateObj) {
-      const hh = String(dateObj.getHours()).padStart(2, '0');
-      const mm = String(dateObj.getMinutes()).padStart(2, '0');
-      const ss = String(dateObj.getSeconds()).padStart(2, '0');
+      const hh = String(dateObj.getHours()).padStart(2,'0');
+      const mm = String(dateObj.getMinutes()).padStart(2,'0');
+      const ss = String(dateObj.getSeconds()).padStart(2,'0');
       return `${hh}:${mm}:${ss}`;
     }
   </script>
 </head>
+
 <body>
   <div class="monitor-container">
     <h1>Køleskabsdetektor v3000</h1>
@@ -280,14 +385,47 @@
         <h2 class="stat-counter"><span id="timeSinceLastOpen">00:00:00</span></h2>
         <p>Tid siden sidste åbning</p>
       </div>
+      
+      <!-- The "Big Box" with iOS style toggle & 4 columns below -->
       <div class="stat-big-box">
         <h3>Big Box</h3>
-      </div>      
+        
+        <!-- iOS style slider with 4 options -->
+        <div class="ios-slider">
+          <button id="iosToggleAll"   class="ios-toggle-btn active">Total</button>
+          <button id="iosToggleMonth" class="ios-toggle-btn">Month</button>
+          <button id="iosToggleWeek"  class="ios-toggle-btn">Week</button>
+          <button id="iosToggleDay"   class="ios-toggle-btn">Day</button>
+        </div>
+        
+        <!-- 4 columns with data (numbers on top, small descriptive text below) -->
+        <div class="four-columns">
+          <div class="column-box">
+            <h2 id="bigBoxOpenings">0</h2>
+            <p>Number of Openings</p>
+          </div>
+          <div class="column-box">
+            <h2 id="bigBoxAlarmToggles">0</h2>
+            <p>Alarm Toggles</p>
+          </div>
+          <div class="column-box">
+            <h2 id="bigBoxLongestOpen">00:00:00</h2>
+            <p>Longest Opening</p>
+          </div>
+          <div class="column-box">
+            <h2 id="bigBoxAvgOpen">00:00:00</h2>
+            <p>Avg Opening Time</p>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Some existing stat-group tiles remain below, if you still want them. -->
       <div class="stat-group">
         <h3>Alle</h3>
         <p>Antal åbninger: <span id="totalAllCount">0</span></p>
         <p>Gennemsnitlig åbningstid: <span id="averageAllTime">00:00:00</span></p>
       </div>
+      
       <div class="stat-group">
         <h3>Måned</h3>
         <div class="stat-sub-group-container">
@@ -295,17 +433,19 @@
             <h2 class="stat-counter"><span id="totalMonthCount">0</span></h2>
             <p class="stat-description">Åbninger</p>
           </div>
-       <div class="stat-sub-group">
+          <div class="stat-sub-group">
             <h2 class="stat-counter"><span id="averageMonth">00:00:00</span></h2>
             <p class="stat-description">Gns. Åbningstid</p>
           </div>
-          </div>   
+        </div>   
       </div>
+      
       <div class="stat-group">
         <h3>Uge</h3>
         <p>Antal åbninger: <span id="totalWeekCount">0</span></p>
         <p>Gennemsnitlig åbningstid: <span id="averageWeek">00:00:00</span></p>
       </div>
+      
       <div class="stat-group">
         <h3>Dag</h3>
         <p>Antal åbninger: <span id="totalDayCount">0</span></p>
