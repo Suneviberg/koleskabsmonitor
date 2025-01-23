@@ -39,7 +39,10 @@
     
     // All logs
     let allLogs = [];
-    
+
+    // We'll track alarm triggers in memory:
+    let alarmActivations = []; // array of timestamps (when the alarm triggered)
+
     // Old “countAll” style variables
     let countAll = 0, totalAll = 0;
     let countMonth = 0, totalMonth = 0;
@@ -49,14 +52,14 @@
     // For "time since last open"
     let lastLogEndTime = 0;
     
-    // New stats for “Big Box” (openings, alarm toggles, longest open, average)
+    // New stats for Big Box
     let openCountAll = 0, alarmTogglesAll = 0, longestOpenAll = 0, avgOpenAll = 0;
     let openCountMonth = 0, alarmTogglesMonth = 0, longestOpenMonth = 0, avgOpenMonth = 0;
     let openCountWeek = 0, alarmTogglesWeek = 0, longestOpenWeek = 0, avgOpenWeek = 0;
     let openCountDay = 0, alarmTogglesDay = 0, longestOpenDay = 0, avgOpenDay = 0;
 
     // Current scope for the Big Box
-    let currentScope = "all"; // "all" | "month" | "week" | "day"
+    let currentScope = "all"; // one of ["all", "month", "week", "day"]
 
     document.addEventListener('DOMContentLoaded', () => {
       const currentStatusEl  = document.getElementById('currentStatus');
@@ -84,10 +87,10 @@
       const iosToggleDay     = document.getElementById('iosToggleDay');
 
       // The 4 columns in “Big Box”
-      const bigBoxOpenings   = document.getElementById('bigBoxOpenings');
-      const bigBoxAlarmToggles= document.getElementById('bigBoxAlarmToggles');
-      const bigBoxLongestOpen = document.getElementById('bigBoxLongestOpen');
-      const bigBoxAvgOpen    = document.getElementById('bigBoxAvgOpen');
+      const bigBoxOpenings      = document.getElementById('bigBoxOpenings');
+      const bigBoxAlarmToggles  = document.getElementById('bigBoxAlarmToggles');
+      const bigBoxLongestOpen   = document.getElementById('bigBoxLongestOpen');
+      const bigBoxAvgOpen       = document.getElementById('bigBoxAvgOpen');
 
       // Alarm audio + button
       const alarmAudio       = document.getElementById('monitorAlarm');
@@ -140,6 +143,7 @@
       }
       updateScopeButtons(); // set initial
 
+      // Setup Firebase references
       const db = window.FridgeDB.db;
       const currentStatusRef = ref(db, 'fridge/currentStatus');
       const logsRef          = ref(db, 'fridge/logs');
@@ -169,16 +173,16 @@
         }
       });
       
-      // Listen for new logs
+      // Logs
       onChildAdded(logsRef, snapshot => {
         const entry = snapshot.val();
         if (!entry) return;
         addLogEntry(logEntriesEl, entry);
         allLogs.push(entry);
-        updateStatistics(); // recalc stats
+        updateStatistics();
       });
       
-      // Update dynamic fields every second
+      // Update dynamic fields (current open/time since open) every second
       setInterval(() => {
         if (currentStatusEl.textContent === "Åbent" && currentOpenStart) {
           currentOpenEl.textContent = formatTime(Date.now() - currentOpenStart);
@@ -198,7 +202,7 @@
         openCountWeek=0; alarmTogglesWeek=0; longestOpenWeek=0; avgOpenWeek=0;
         openCountDay=0; alarmTogglesDay=0; longestOpenDay=0; avgOpenDay=0;
 
-        // For older "countAll" style
+        // For older “countAll” style
         countAll=0; totalAll=0;
         countMonth=0; totalMonth=0;
         countWeek=0; totalWeek=0;
@@ -212,121 +216,132 @@
         const thisDate     = now.getDate();
         const weekAgo      = new Date(now.getTime() - 7 * 86400000);
 
+        // 1) Process log entries
         for(const entry of allLogs) {
           const dur = entry.durationMs || 0;
           // "All"
           openCountAll++;
           totalDurAll += dur;
-          if(dur > longestOpenAll) longestOpenAll = dur;
-          // alarmTogglesAll++ // placeholder if you track alarm toggles
+          if(dur> longestOpenAll) longestOpenAll= dur;
 
-          // older approach
           countAll++;
-          totalAll += dur;
+          totalAll+= dur;
 
-          // Check date
-          const eDate = new Date(entry.start);
+          const eDate= new Date(entry.start);
           // "Month"
-          if(eDate.getFullYear() === currentYear && eDate.getMonth()===thisMonth) {
+          if(eDate.getFullYear()===currentYear && eDate.getMonth()===thisMonth){
             openCountMonth++;
-            totalDurMonth += dur;
-            if(dur > longestOpenMonth) longestOpenMonth=dur;
-            // alarmTogglesMonth++;
-            
+            totalDurMonth+= dur;
+            if(dur> longestOpenMonth) longestOpenMonth=dur;
+
             countMonth++;
-            totalMonth += dur;
+            totalMonth+= dur;
           }
-
           // "Week"
-          if(eDate >= weekAgo) {
+          if(eDate >= weekAgo){
             openCountWeek++;
-            totalDurWeek += dur;
-            if(dur> longestOpenWeek) longestOpenWeek=dur;
-            // alarmTogglesWeek++;
-            
-            countWeek++;
-            totalWeek += dur;
-          }
+            totalDurWeek+= dur;
+            if(dur> longestOpenWeek) longestOpenWeek= dur;
 
+            countWeek++;
+            totalWeek+= dur;
+          }
           // "Day"
           if(eDate.getFullYear()===currentYear && eDate.getMonth()===thisMonth && eDate.getDate()===thisDate){
             openCountDay++;
             totalDurDay+= dur;
-            if(dur> longestOpenDay) longestOpenDay=dur;
-            // alarmTogglesDay++;
-            
+            if(dur> longestOpenDay) longestOpenDay= dur;
+
             countDay++;
-            totalDay += dur;
+            totalDay+= dur;
           }
         }
 
-        // compute averages for big box
+        // 2) Check alarmActivations for toggles
+        // Each time alarm was triggered, we see if it belongs in all / month / week / day
+        for(const ts of alarmActivations){
+          // "All"
+          alarmTogglesAll++;
+          const aDate= new Date(ts);
+
+          // "Month"
+          if(aDate.getFullYear()===currentYear && aDate.getMonth()===thisMonth){
+            alarmTogglesMonth++;
+          }
+          // "Week"
+          if(aDate >= weekAgo){
+            alarmTogglesWeek++;
+          }
+          // "Day"
+          if(aDate.getFullYear()===currentYear && aDate.getMonth()===thisMonth && aDate.getDate()===thisDate){
+            alarmTogglesDay++;
+          }
+        }
+
+        // 3) Calculate Averages
         avgOpenAll   = openCountAll   ? (totalDurAll / openCountAll) : 0;
         avgOpenMonth = openCountMonth ? (totalDurMonth / openCountMonth) : 0;
         avgOpenWeek  = openCountWeek  ? (totalDurWeek / openCountWeek) : 0;
         avgOpenDay   = openCountDay   ? (totalDurDay / openCountDay) : 0;
 
-        // older “all” stats
-        totalBoxCountEl.textContent = countAll;
-        totalBoxAvgEl.textContent   = countAll>0 ? formatTime(totalAll/countAll) : "00:00:00";
+        // 4) Update older stats
+        totalBoxCountEl.textContent= countAll;
+        totalBoxAvgEl.textContent= countAll>0 ? formatTime(totalAll/countAll) : "00:00:00";
 
-        // older “month”
-        monthBoxCountEl.textContent = countMonth;
-        monthBoxAvgEl.textContent   = countMonth>0 ? formatTime(totalMonth/countMonth) : "00:00:00";
+        monthBoxCountEl.textContent= countMonth;
+        monthBoxAvgEl.textContent= countMonth>0 ? formatTime(totalMonth/countMonth):"00:00:00";
 
-        // older “week”
-        weekBoxCountEl.textContent  = countWeek;
-        weekBoxAvgEl.textContent    = countWeek>0 ? formatTime(totalWeek/countWeek) : "00:00:00";
+        weekBoxCountEl.textContent= countWeek;
+        weekBoxAvgEl.textContent= countWeek>0 ? formatTime(totalWeek/countWeek):"00:00:00";
 
-        // older “day”
-        dayBoxCountEl.textContent   = countDay;
-        dayBoxAvgEl.textContent     = countDay>0 ? formatTime(totalDay/countDay) : "00:00:00";
+        dayBoxCountEl.textContent= countDay;
+        dayBoxAvgEl.textContent= countDay>0 ? formatTime(totalDay/countDay):"00:00:00";
 
-        // Finally update big box
+        // 5) Update the “Big Box”
         updateBigBoxDisplay();
       }
 
       function updateBigBoxDisplay(){
-        const bigBoxOpenings     = document.getElementById('bigBoxOpenings');
-        const bigBoxAlarmToggles = document.getElementById('bigBoxAlarmToggles');
-        const bigBoxLongestOpen  = document.getElementById('bigBoxLongestOpen');
-        const bigBoxAvgOpen      = document.getElementById('bigBoxAvgOpen');
-        
-        let openings=0, alarmToggles=0, longestOpen=0, avgOpen=0;
+        const bigBoxOpenings    = document.getElementById('bigBoxOpenings');
+        const bigBoxAlarmToggles= document.getElementById('bigBoxAlarmToggles');
+        const bigBoxLongestOpen = document.getElementById('bigBoxLongestOpen');
+        const bigBoxAvgOpen     = document.getElementById('bigBoxAvgOpen');
+
+        let openings=0, alarmCount=0, longestOpen=0, avgOpen=0;
         if(currentScope==="all"){
-          openings = openCountAll;
-          alarmToggles= alarmTogglesAll;
+          openings   = openCountAll;
+          alarmCount = alarmTogglesAll;
           longestOpen= longestOpenAll;
-          avgOpen= avgOpenAll;
+          avgOpen    = avgOpenAll;
         } else if(currentScope==="month"){
-          openings = openCountMonth;
-          alarmToggles= alarmTogglesMonth;
+          openings   = openCountMonth;
+          alarmCount = alarmTogglesMonth;
           longestOpen= longestOpenMonth;
-          avgOpen= avgOpenMonth;
+          avgOpen    = avgOpenMonth;
         } else if(currentScope==="week"){
-          openings= openCountWeek;
-          alarmToggles= alarmTogglesWeek;
+          openings   = openCountWeek;
+          alarmCount = alarmTogglesWeek;
           longestOpen= longestOpenWeek;
-          avgOpen= avgOpenWeek;
+          avgOpen    = avgOpenWeek;
         } else if(currentScope==="day"){
-          openings= openCountDay;
-          alarmToggles= alarmTogglesDay;
+          openings   = openCountDay;
+          alarmCount = alarmTogglesDay;
           longestOpen= longestOpenDay;
-          avgOpen= avgOpenDay;
+          avgOpen    = avgOpenDay;
         }
 
-        bigBoxOpenings.textContent     = openings;
-        bigBoxAlarmToggles.textContent = alarmToggles;
-        bigBoxLongestOpen.textContent  = formatTime(longestOpen);
-        bigBoxAvgOpen.textContent      = formatTime(avgOpen);
+        bigBoxOpenings.textContent    = openings.toString();
+        bigBoxAlarmToggles.textContent= alarmCount.toString();
+        bigBoxLongestOpen.textContent = formatTime(longestOpen);
+        bigBoxAvgOpen.textContent     = formatTime(avgOpen);
       }
     });
 
     // Monitor watch + alarm
     function startMonitorWatch(alarmAudio){
       if(monitorInterval) return;
-      monitorInterval = setInterval(()=>{
-        const elapsed = Date.now()-currentOpenStart;
+      monitorInterval= setInterval(()=>{
+        const elapsed= Date.now()-currentOpenStart;
         if(elapsed >= ALARM_THRESHOLD_MS && !alarmIsPlaying){
           startAlarm(alarmAudio);
         }
@@ -340,11 +355,16 @@
     }
     function startAlarm(alarmAudio){
       alarmIsPlaying=true;
+      // Here we record that alarm toggled, storing the timestamp
+      alarmActivations.push(Date.now());
+
       try{
         alarmAudio.play().catch(err=>{
           console.warn("Monitor alarm error:",err);
         });
-      }catch(err){console.warn("Monitor alarm exception:",err);}
+      }catch(err){
+        console.warn("Monitor alarm exception:",err);
+      }
     }
     function stopAlarm(alarmAudio){
       alarmIsPlaying=false;
@@ -440,6 +460,34 @@
       </div>
 
       <!-- Old tiles: “Alle,” “Måned,” “Uge,” “Dag” if you still want them -->
+      <div class="stat-group">
+        <h3>Alle</h3>
+        <p>Antal åbninger: <span id="totalAllCount">0</span></p>
+        <p>Gennemsnitlig åbningstid: <span id="averageAllTime">00:00:00</span></p>
+      </div>
+      <div class="stat-group">
+        <h3>Måned</h3>
+        <div class="stat-sub-group-container">
+          <div class="stat-sub-group">
+            <h2 class="stat-counter"><span id="totalMonthCount">0</span></h2>
+            <p class="stat-description">Åbninger</p>
+          </div>
+          <div class="stat-sub-group">
+            <h2 class="stat-counter"><span id="averageMonth">00:00:00</span></h2>
+            <p class="stat-description">Gns. Åbningstid</p>
+          </div>
+        </div>   
+      </div>
+      <div class="stat-group">
+        <h3>Uge</h3>
+        <p>Antal åbninger: <span id="totalWeekCount">0</span></p>
+        <p>Gennemsnitlig åbningstid: <span id="averageWeek">00:00:00</span></p>
+      </div>
+      <div class="stat-group">
+        <h3>Dag</h3>
+        <p>Antal åbninger: <span id="totalDayCount">0</span></p>
+        <p>Gennemsnitlig åbningstid: <span id="averageDay">00:00:00</span></p>
+      </div>
     </div> <!-- end .stats-box -->
 
     <!-- The Log box -->
