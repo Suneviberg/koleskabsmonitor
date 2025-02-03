@@ -29,7 +29,7 @@
 
   <!-- Main Monitor Script -->
   <script type="module">
-    import { getDatabase, ref, onValue, onChildAdded } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
+    import { getDatabase, ref, onValue, onChildAdded, set } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
     
     // 45-second alarm threshold
     const ALARM_THRESHOLD_MS = 45000;
@@ -351,29 +351,53 @@
 
       // Add the reset function
       function resetAllStats() {
-        const { db, ref, set } = window.FridgeDB;
-        
-        // Reset logs
-        set(ref(db, 'fridge/logs'), null);
-        
-        // Reset alarm toggles
-        set(ref(db, 'fridge/alarmToggles'), null);
-        
-        // Reset current status
-        set(ref(db, 'fridge/currentStatus'), {
-          isOpen: false
+        // Get fresh Firebase references
+        const logsRef = ref(db, 'fridge/logs');
+        const alarmTogglesRef = ref(db, 'fridge/alarmToggles');
+        const currentStatusRef = ref(db, 'fridge/currentStatus');
+
+        // Use Promise.all to ensure all operations complete
+        Promise.all([
+          set(logsRef, null),
+          set(alarmTogglesRef, null),
+          set(currentStatusRef, { isOpen: false })
+        ]).then(() => {
+          console.log('Firebase data reset successfully');
+          
+          // Reset local variables
+          allLogs = [];
+          alarmActivations = [];
+          lastLogEndTime = 0;
+          currentOpenStart = 0;
+          
+          // Reset all counters
+          openCountAll = 0; alarmTogglesAll = 0; longestOpenAll = 0; avgOpenAll = 0;
+          openCountMonth = 0; alarmTogglesMonth = 0; longestOpenMonth = 0; avgOpenMonth = 0;
+          openCountWeek = 0; alarmTogglesWeek = 0; longestOpenWeek = 0; avgOpenWeek = 0;
+          openCountDay = 0; alarmTogglesDay = 0; longestOpenDay = 0; avgOpenDay = 0;
+          
+          countAll = 0; totalAll = 0;
+          countMonth = 0; totalMonth = 0;
+          countWeek = 0; totalWeek = 0;
+          countDay = 0; totalDay = 0;
+
+          // Clear UI elements
+          logEntriesEl.innerHTML = '';
+          document.getElementById('currentStatus').textContent = 'Lukket';
+          document.getElementById('currentOpeningDuration').textContent = '00:00:00';
+          document.getElementById('timeSinceLastOpen').textContent = '00:00:00';
+          
+          // Update all displays
+          updateStatistics();
+          updateBigBoxDisplay();
+          
+          // Reset status box color
+          document.querySelector('.status-box').style.backgroundColor = '#1a6600';
+          
+        }).catch(error => {
+          console.error('Error resetting Firebase data:', error);
+          alert('Der opstod en fejl under nulstilling. Prøv igen.');
         });
-        
-        // Reset local arrays/variables
-        allLogs = [];
-        alarmActivations = [];
-        lastLogEndTime = 0;
-        
-        // Clear log entries from UI
-        logEntriesEl.innerHTML = '';
-        
-        // Update UI
-        updateStatistics();
       }
 
       // Add click handler for reset button
