@@ -345,6 +345,43 @@
         bigBoxLongestOpen.textContent = formatTime(longestOpen);
         bigBoxAvgOpen.textContent     = formatTime(avgOpen);
       }
+
+      // Add this near the top with other element references
+      const resetStatsBtn = document.getElementById('resetStatsBtn');
+
+      // Add the reset function
+      function resetAllStats() {
+        const { db, ref, set } = window.FridgeDB;
+        
+        // Reset logs
+        set(ref(db, 'fridge/logs'), null);
+        
+        // Reset alarm toggles
+        set(ref(db, 'fridge/alarmToggles'), null);
+        
+        // Reset current status
+        set(ref(db, 'fridge/currentStatus'), {
+          isOpen: false
+        });
+        
+        // Reset local arrays/variables
+        allLogs = [];
+        alarmActivations = [];
+        lastLogEndTime = 0;
+        
+        // Clear log entries from UI
+        logEntriesEl.innerHTML = '';
+        
+        // Update UI
+        updateStatistics();
+      }
+
+      // Add click handler for reset button
+      resetStatsBtn.addEventListener('click', () => {
+        if (confirm('Er du sikker på, at du vil nulstille alle statistikker? Dette kan ikke fortrydes.')) {
+          resetAllStats();
+        }
+      });
     });
 
     // Monitor watch + alarm
