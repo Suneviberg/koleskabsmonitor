@@ -146,8 +146,20 @@
       // Setup Firebase references
       const db = window.FridgeDB.db;
       const currentStatusRef = ref(db, 'fridge/currentStatus');
-      const logsRef          = ref(db, 'fridge/logs');
+      const logsRef = ref(db, 'fridge/logs');
+      const alarmTogglesRef = ref(db, 'fridge/alarmToggles');
       
+      // Add this listener for alarm toggles
+      onChildAdded(alarmTogglesRef, snapshot => {
+        const toggle = snapshot.val();
+        if (!toggle) return;
+        
+        // Add to our local array
+        alarmActivations.push(toggle.timestamp);
+        // Update statistics to reflect the new alarm toggle
+        updateStatistics();
+      });
+
       // Listen for current status changes
       onValue(currentStatusRef, snapshot => {
         const val = snapshot.val();
@@ -353,8 +365,8 @@
     }
     function startAlarm(alarmAudio){
       alarmIsPlaying=true;
-      // record alarm toggle
-      alarmActivations.push(Date.now());
+      // Remove this line since toggles now come from Firebase:
+      // alarmActivations.push(Date.now());
 
       try{
         alarmAudio.play().catch(err=>{
