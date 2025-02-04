@@ -43,7 +43,7 @@
     // We'll track alarm triggers in memory:
     let alarmActivations = []; // array of timestamps (when the alarm triggered)
 
-    // Old “countAll” style variables
+    // Old "countAll" style variables
     let countAll = 0, totalAll = 0;
     let countMonth = 0, totalMonth = 0;
     let countWeek = 0, totalWeek = 0;
@@ -86,7 +86,7 @@
       const iosToggleWeek    = document.getElementById('iosToggleWeek');
       const iosToggleDay     = document.getElementById('iosToggleDay');
 
-      // The 4 columns in “Big Box”
+      // The 4 columns in "Big Box"
       const bigBoxOpenings      = document.getElementById('bigBoxOpenings');
       const bigBoxAlarmToggles  = document.getElementById('bigBoxAlarmToggles');
       const bigBoxLongestOpen   = document.getElementById('bigBoxLongestOpen');
@@ -183,6 +183,7 @@
           updateTimeSinceLastOpen();
           currentOpenStart = 0;
         }
+        updateBackground(val.isOpen ? "Åbent" : "Lukket");
       });
       
       // Logs
@@ -214,7 +215,7 @@
         openCountWeek=0; alarmTogglesWeek=0; longestOpenWeek=0; avgOpenWeek=0;
         openCountDay=0; alarmTogglesDay=0; longestOpenDay=0; avgOpenDay=0;
 
-        // For older “countAll” style
+        // For older "countAll" style
         countAll=0; totalAll=0;
         countMonth=0; totalMonth=0;
         countWeek=0; totalWeek=0;
@@ -307,7 +308,7 @@
         dayBoxCountEl.textContent= countDay;
         dayBoxAvgEl.textContent= countDay>0 ? formatTime(totalDay/countDay):"00:00:00";
 
-        // 5) Update the “Big Box”
+        // 5) Update the "Big Box"
         updateBigBoxDisplay();
       }
 
@@ -476,6 +477,14 @@
       const ss= String(dateObj.getSeconds()).padStart(2,'0');
       return `${hh}:${mm}:${ss}`;
     }
+
+    function updateBackground(status) {
+      if (status === "Åbent") {
+        document.body.classList.add('open');
+      } else {
+        document.body.classList.remove('open');
+      }
+    }
   </script>
 </head>
 
@@ -491,7 +500,7 @@
     
     <!-- Stats Box -->
     <div class="stats-box">
-      <!-- “Aktuel Åbning” + “Tid siden sidste åbning” -->
+      <!-- "Aktuel Åbning" + "Tid siden sidste åbning" -->
       <div class="stat-group">
         <h2 class="stat-counter"><span id="currentOpeningDuration">00:00:00</span></h2>
         <p>Aktuel åbning</p>
