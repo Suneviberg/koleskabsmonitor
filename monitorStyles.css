@@ -23,7 +23,7 @@ body.open {
 
 /* Monitor container with semi-transparent background */
 .monitor-container {
-  max-width: 50%;
+  max-width: 30%;
   max-height: 90%;
   width: 100%;
   padding: 10px;
