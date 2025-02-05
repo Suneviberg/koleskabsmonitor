@@ -25,7 +25,6 @@ body.open {
 /* Monitor container with semi-transparent background */
 .monitor-container {
   max-width: 38%;
-  max-height: 90%;
   width: 100%;
   padding: 10px;
   background-color: rgba(0, 0, 0, 0.5);
