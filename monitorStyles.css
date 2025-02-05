@@ -227,6 +227,8 @@ h1 {
   max-height: 250px; 
   overflow-y: auto;
   margin-bottom: 20px;
+  width: 100%; /* Ensure it fits within the container */
+  box-sizing: border-box;
 }
 .log-box h2 {
   text-align: center;
@@ -265,10 +267,16 @@ h1 {
   .four-columns {
     grid-template-columns: repeat(2, 1fr);
   }
+  .monitor-container {
+  max-width: 95%; /* Further adjust for smaller screens */
+  }
 }
 
 @media (max-width: 480px) {
   .four-columns {
     grid-template-columns: 1fr;
+  }
+  .monitor-container {
+  max-width: 100%; /* Full width for very small screens */
   }
 }
