@@ -23,12 +23,14 @@ body.open {
 
 /* Monitor container with semi-transparent background */
 .monitor-container {
-  max-width: 700px;
+  max-width: 90%;
   width: 100%;
   padding: 10px;
   background-color: rgba(0, 0, 0, 0.5);
   border-radius: 8px;
   backdrop-filter: blur(10px);
+  box-sizing: border-box; /* Ensure padding is included in the width */
+  margin: 0 auto; /* Center the container */
 }
 
 h1 {
