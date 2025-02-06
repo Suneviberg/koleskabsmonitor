@@ -4,6 +4,9 @@
   <meta charset="UTF-8" />
   <title>Køleskabsdetektor v3000</title>
   <link rel="stylesheet" href="monitorStyles.css">
+  
+  <!-- Add Chart.js library BEFORE our scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <!-- Firebase Modules (ES Modules) -->
   <script type="module">
@@ -43,7 +46,7 @@
     // We'll track alarm triggers in memory:
     let alarmActivations = []; // array of timestamps (when the alarm triggered)
 
-    // Old “countAll” style variables
+    // Old "countAll" style variables
     let countAll = 0, totalAll = 0;
     let countMonth = 0, totalMonth = 0;
     let countWeek = 0, totalWeek = 0;
@@ -60,6 +63,20 @@
 
     // Current scope for the Big Box
     let currentScope = "all"; // one of ["all", "month", "week", "day"]
+
+    // Move charts variable to the top scope
+    let charts = null;
+
+    // Add after your existing variables at the top
+    let predictiveAnalytics = {
+      peakHour: null,
+      nextPredictedOpening: null,
+      currentAnomaly: null,
+      patterns: {
+        hourly: Array(24).fill(0),
+        daily: Array(7).fill(0)
+      }
+    };
 
     document.addEventListener('DOMContentLoaded', () => {
       const currentStatusEl  = document.getElementById('currentStatus');
@@ -86,7 +103,7 @@
       const iosToggleWeek    = document.getElementById('iosToggleWeek');
       const iosToggleDay     = document.getElementById('iosToggleDay');
 
-      // The 4 columns in “Big Box”
+      // The 4 columns in "Big Box"
       const bigBoxOpenings      = document.getElementById('bigBoxOpenings');
       const bigBoxAlarmToggles  = document.getElementById('bigBoxAlarmToggles');
       const bigBoxLongestOpen   = document.getElementById('bigBoxLongestOpen');
@@ -214,7 +231,7 @@
         openCountWeek=0; alarmTogglesWeek=0; longestOpenWeek=0; avgOpenWeek=0;
         openCountDay=0; alarmTogglesDay=0; longestOpenDay=0; avgOpenDay=0;
 
-        // For older “countAll” style
+        // For older "countAll" style
         countAll=0; totalAll=0;
         countMonth=0; totalMonth=0;
         countWeek=0; totalWeek=0;
@@ -307,8 +324,19 @@
         dayBoxCountEl.textContent= countDay;
         dayBoxAvgEl.textContent= countDay>0 ? formatTime(totalDay/countDay):"00:00:00";
 
-        // 5) Update the “Big Box”
+        // 5) Update the "Big Box"
         updateBigBoxDisplay();
+
+        // Initialize charts if not already initialized
+        if (!charts) {
+          charts = initializeCharts();
+        }
+
+        // Update the charts
+        updateCharts(charts);
+
+        // Add to updateStatistics function, before the charts update
+        updatePredictiveAnalytics();
       }
 
       function updateBigBoxDisplay(){
@@ -406,171 +434,909 @@
           resetAllStats();
         }
       });
-    });
 
-    // Monitor watch + alarm
-    function startMonitorWatch(alarmAudio){
-      if(monitorInterval) return;
-      monitorInterval= setInterval(()=>{
-        const elapsed= Date.now()-currentOpenStart;
-        if(elapsed >= ALARM_THRESHOLD_MS && !alarmIsPlaying){
-          startAlarm(alarmAudio);
+      // Monitor watch + alarm
+      function startMonitorWatch(alarmAudio){
+        if(monitorInterval) return;
+        monitorInterval= setInterval(()=>{
+          const elapsed= Date.now()-currentOpenStart;
+          if(elapsed >= ALARM_THRESHOLD_MS && !alarmIsPlaying){
+            startAlarm(alarmAudio);
+          }
+        },500);
+      }
+      function stopMonitorWatch(){
+        if(monitorInterval){
+          clearInterval(monitorInterval);
+          monitorInterval=null;
         }
-      },500);
-    }
-    function stopMonitorWatch(){
-      if(monitorInterval){
-        clearInterval(monitorInterval);
-        monitorInterval=null;
       }
-    }
-    function startAlarm(alarmAudio){
-      alarmIsPlaying=true;
-      // Remove this line since toggles now come from Firebase:
-      // alarmActivations.push(Date.now());
+      function startAlarm(alarmAudio){
+        alarmIsPlaying=true;
+        // Remove this line since toggles now come from Firebase:
+        // alarmActivations.push(Date.now());
 
-      try{
-        alarmAudio.play().catch(err=>{
-          console.warn("Monitor alarm error:",err);
+        try{
+          alarmAudio.play().catch(err=>{
+            console.warn("Monitor alarm error:",err);
+          });
+        }catch(err){
+          console.warn("Monitor alarm exception:",err);
+        }
+      }
+      function stopAlarm(alarmAudio){
+        alarmIsPlaying=false;
+        if(!alarmAudio.paused){
+          alarmAudio.pause();
+          alarmAudio.currentTime=0;
+        }
+      }
+
+      // Add logs
+      function addLogEntry(container, entry) {
+        const entryDate = new Date(entry.start);
+        const dateStr = entryDate.toLocaleDateString('da-DK', { 
+          weekday: 'long', 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
         });
-      }catch(err){
-        console.warn("Monitor alarm exception:",err);
+        
+        // Find or create date section
+        let dateSection = container.querySelector(`[data-date="${dateStr}"]`);
+        if (!dateSection) {
+          dateSection = document.createElement('div');
+          dateSection.className = 'log-date-section';
+          dateSection.setAttribute('data-date', dateStr);
+          
+          // Create header
+          const header = document.createElement('div');
+          header.className = 'log-date-header';
+          header.innerHTML = `
+            <span>${dateStr}</span>
+            <span class="toggle-icon">▼</span>
+          `;
+          
+          // Create entries container
+          const entries = document.createElement('div');
+          entries.className = 'log-date-entries collapsed';
+          
+          // Add click handler for collapse/expand
+          header.addEventListener('click', () => {
+            entries.classList.toggle('collapsed');
+            header.querySelector('.toggle-icon').style.transform = 
+                entries.classList.contains('collapsed') ? 'rotate(-90deg)' : 'rotate(0deg)';
+          });
+          
+          dateSection.appendChild(header);
+          dateSection.appendChild(entries);
+          
+          // Insert new date section at the top
+          if (container.firstChild) {
+            container.insertBefore(dateSection, container.firstChild);
+          } else {
+            container.appendChild(dateSection);
+          }
+        }
+        
+        // Create and add the log entry
+        const div = document.createElement('div');
+        div.className = 'log-entry';
+        const startStr = formatClockTime(new Date(entry.start));
+        const endStr = formatClockTime(new Date(entry.end));
+        const durStr = formatTime(entry.durationMs || 0);
+        div.textContent = `Åbnet: ${startStr} - ${endStr} (Varighed: ${durStr})`;
+
+        // Add long-opening class if duration is over 45 seconds
+        if ((entry.durationMs || 0) > 45000) {
+          div.classList.add('long-opening');
+        }
+        
+        // Add to the entries section for this date
+        const entriesContainer = dateSection.querySelector('.log-date-entries');
+        entriesContainer.insertBefore(div, entriesContainer.firstChild);
+        
+        lastLogEndTime = entry.end;
       }
-    }
-    function stopAlarm(alarmAudio){
-      alarmIsPlaying=false;
-      if(!alarmAudio.paused){
-        alarmAudio.pause();
-        alarmAudio.currentTime=0;
+
+      function updateTimeSinceLastOpen(){
+        if(!lastLogEndTime) return;
+        const elapsed= Date.now()-lastLogEndTime;
+        document.getElementById('timeSinceLastOpen').textContent= formatTime(elapsed);
       }
+
+      function formatTime(ms){
+        let totalSeconds= Math.floor(ms/1000);
+        const hours= Math.floor(totalSeconds/3600);
+        totalSeconds%=3600;
+        const minutes= Math.floor(totalSeconds/60);
+        const seconds= totalSeconds%60;
+        return [hours,minutes,seconds].map(n=> String(n).padStart(2,'0')).join(':');
+      }
+      function formatClockTime(dateObj){
+        const hh= String(dateObj.getHours()).padStart(2,'0');
+        const mm= String(dateObj.getMinutes()).padStart(2,'0');
+        const ss= String(dateObj.getSeconds()).padStart(2,'0');
+        return `${hh}:${mm}:${ss}`;
+      }
+
+      // Chart initialization and update functions
+      function initializeCharts() {
+        // Create or update the hourly openings chart
+        const hourlyCtx = document.getElementById('openingsPerHour').getContext('2d');
+        
+        // Add toggle buttons before the canvas
+        const chartBox = document.getElementById('openingsPerHour').closest('.chart-box');
+        const toggleContainer = document.createElement('div');
+        toggleContainer.className = 'chart-toggle';
+        toggleContainer.innerHTML = `
+            <button class="chart-toggle-btn active" data-period="all">Total</button>
+            <button class="chart-toggle-btn" data-period="today">I dag</button>
+        `;
+        chartBox.insertBefore(toggleContainer, chartBox.querySelector('canvas'));
+
+        // Initialize the chart
+        const hourlyChart = new Chart(hourlyCtx, {
+            type: 'bar',
+            data: {
+                labels: Array.from({length: 24}, (_, i) => `${i}:00`),
+                datasets: [{
+                    label: 'Antal åbninger',
+                    data: getHourlyData('all'),
+                    backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { labels: { color: '#fff' } }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { color: '#fff' }
+                    },
+                    x: {
+                        ticks: { color: '#fff' }
+                    }
+                }
+            }
+        });
+
+        // Add toggle event listener
+        toggleContainer.addEventListener('click', (e) => {
+            if (!e.target.classList.contains('chart-toggle-btn')) return;
+            
+            // Update active state
+            toggleContainer.querySelectorAll('.chart-toggle-btn').forEach(btn => 
+                btn.classList.remove('active'));
+            e.target.classList.add('active');
+            
+            // Update chart data
+            const period = e.target.dataset.period;
+            hourlyChart.data.datasets[0].data = getHourlyData(period);
+            hourlyChart.update();
+        });
+
+        // Alarm rate chart
+        const alarmRateCtx = document.getElementById('alarmRate').getContext('2d');
+        const alarmRateChart = new Chart(alarmRateCtx, {
+          type: 'doughnut',
+          data: {
+            labels: ['Normal åbninger', 'Alarm aktiveret'],
+            datasets: [{
+              data: [0, 0],
+              backgroundColor: [
+                'rgba(75, 192, 192, 0.6)',
+                'rgba(255, 99, 132, 0.6)'
+              ]
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: { color: '#fff' }
+              }
+            }
+          }
+        });
+
+        // Top 5 longest openings
+        const topOpeningsCtx = document.getElementById('topOpenings').getContext('2d');
+        const topOpeningsChart = new Chart(topOpeningsCtx, {
+          type: 'bar',
+          data: {
+            labels: Array(5).fill(''),
+            datasets: [{
+              label: 'Varighed (sekunder)',
+              data: Array(5).fill(0),
+              backgroundColor: 'rgba(255, 159, 64, 0.6)'
+            }]
+          },
+          options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { labels: { color: '#fff' } }
+            },
+            scales: {
+              x: {
+                beginAtZero: true,
+                ticks: { color: '#fff' }
+              },
+              y: {
+                ticks: { color: '#fff' }
+              }
+            }
+          }
+        });
+
+        // Weekly activity
+        const weeklyActivityCtx = document.getElementById('weeklyActivity').getContext('2d');
+        const weeklyActivityChart = new Chart(weeklyActivityCtx, {
+          type: 'bar',
+          data: {
+            labels: ['Man', 'Tir', 'Ons', 'Tor', 'Fre', 'Lør', 'Søn'],
+            datasets: [{
+              label: 'Antal åbninger',
+              data: Array(7).fill(0),
+              backgroundColor: 'rgba(75, 192, 192, 0.6)'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { labels: { color: '#fff' } }
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+                ticks: { color: '#fff' }
+              },
+              x: {
+                ticks: { color: '#fff' }
+              }
+            }
+          }
+        });
+
+        // Average open time per day chart
+        const avgTimeCtx = document.getElementById('avgOpenTimePerDay').getContext('2d');
+        const avgTimeChart = new Chart(avgTimeCtx, {
+          type: 'line',
+          data: {
+            labels: ['7 dage siden', '6 dage siden', '5 dage siden', '4 dage siden', '3 dage siden', '2 dage siden', 'I dag'],
+            datasets: [{
+              label: 'Gennemsnit (sekunder)',
+              data: Array(7).fill(0),
+              borderColor: 'rgba(255, 99, 132, 1)',
+              tension: 0.4,
+              fill: true,
+              backgroundColor: 'rgba(255, 99, 132, 0.1)'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { labels: { color: '#fff' } }
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+                ticks: { color: '#fff' }
+              },
+              x: {
+                ticks: { 
+                  color: '#fff',
+                  maxRotation: 45,
+                  minRotation: 45
+                }
+              }
+            }
+          }
+        });
+
+        return { 
+          hourlyChart, 
+          alarmRateChart,
+          topOpeningsChart,
+          avgTimeChart,
+          weeklyActivityChart
+        };
+      }
+
+      // Helper function to get hourly data
+      function getHourlyData(period) {
+        const hourlyData = Array(24).fill(0);
+        const today = new Date();
+        
+        allLogs.forEach(entry => {
+          const entryDate = new Date(entry.start);
+          const hour = entryDate.getHours();
+          
+          if (period === 'today') {
+            // Only count today's openings
+            if (entryDate.toDateString() === today.toDateString()) {
+              hourlyData[hour]++;
+            }
+          } else {
+            // Count all openings
+            hourlyData[hour]++;
+          }
+        });
+        
+        return hourlyData;
+      }
+
+      // Update the updateCharts function to match
+      function updateCharts(charts) {
+        if (!charts) return;
+
+        // Update openings per hour
+        const hourCounts = Array(24).fill(0);
+        allLogs.forEach(entry => {
+          const hour = new Date(entry.start).getHours();
+          hourCounts[hour]++;
+        });
+        charts.hourlyChart.data.datasets[0].data = hourCounts;
+        charts.hourlyChart.update();
+
+        // Update alarm rate
+        const normalOpenings = openCountAll - alarmTogglesAll;
+        charts.alarmRateChart.data.datasets[0].data = [normalOpenings, alarmTogglesAll];
+        charts.alarmRateChart.update();
+
+        // Update top 5 longest openings
+        const top5Openings = [...allLogs]
+          .sort((a, b) => (b.durationMs || 0) - (a.durationMs || 0))
+          .slice(0, 5);
+        charts.topOpeningsChart.data.labels = top5Openings.map(entry => {
+          const date = new Date(entry.start);
+          const timeStr = formatClockTime(date);
+          const dateStr = date.toLocaleDateString('da-DK', { 
+            day: 'numeric',
+            month: 'short'
+          });
+          return `${dateStr} ${timeStr}`;
+        });
+        charts.topOpeningsChart.data.datasets[0].data = top5Openings.map(entry => 
+          Math.round((entry.durationMs || 0) / 1000)
+        );
+        charts.topOpeningsChart.update();
+
+        // Update weekly activity
+        const weekdayCounts = Array(7).fill(0);
+        allLogs.forEach(entry => {
+          const dayIndex = new Date(entry.start).getDay();
+          weekdayCounts[dayIndex]++;
+        });
+        // Reorder array to start with Monday
+        const reorderedCounts = [...weekdayCounts.slice(1), weekdayCounts[0]];
+        charts.weeklyActivityChart.data.datasets[0].data = reorderedCounts;
+        charts.weeklyActivityChart.update();
+
+        // Update average open time per day
+        const last7Days = Array(7).fill(0).map((_, i) => {
+          const date = new Date();
+          date.setDate(date.getDate() - (6 - i));  // Changed to count forward
+          return date;
+        });
+
+        const dailyAverages = last7Days.map(date => {
+          const dayLogs = allLogs.filter(entry => {
+            const entryDate = new Date(entry.start);
+            return entryDate.toDateString() === date.toDateString();
+          });
+          if (dayLogs.length === 0) return 0;
+          const avgMs = dayLogs.reduce((sum, log) => sum + (log.durationMs || 0), 0) / dayLogs.length;
+          return Math.round(avgMs / 1000); // Convert to seconds
+        });
+
+        charts.avgTimeChart.data.datasets[0].data = dailyAverages;
+        charts.avgTimeChart.update();
+      }
+
+      // Replace the existing calculateTypicalInterval with these more sophisticated functions
+      function calculateNextOpeningPrediction(logs) {
+        const now = new Date();
+        const currentHour = now.getHours();
+        
+        // Analyze hourly patterns across days
+        const hourlyPatterns = Array(24).fill(0).map(() => ({
+          count: 0,
+            days: new Set() // Track unique days to calculate daily average
+        }));
+
+        // Build hourly statistics
+        logs.forEach(entry => {
+          const entryDate = new Date(entry.start);
+          const hour = entryDate.getHours();
+            const dayKey = `${entryDate.getFullYear()}-${entryDate.getMonth()}-${entryDate.getDate()}`;
+          hourlyPatterns[hour].count++;
+            hourlyPatterns[hour].days.add(dayKey);
+        });
+
+        // Calculate average openings per hour per day
+        const hourlyAverages = hourlyPatterns.map((pattern, hour) => ({
+          hour,
+            avgPerDay: pattern.count / Math.max(1, pattern.days.size),
+            totalCount: pattern.count
+        }));
+
+        // Find the busiest hours (top 2)
+        const busiestHours = [...hourlyAverages]
+            .sort((a, b) => b.avgPerDay - a.avgPerDay)
+            .slice(0, 2);
+
+        // Count openings in current hour today
+        const today = new Date();
+        const currentHourOpenings = logs.filter(entry => {
+            const entryDate = new Date(entry.start);
+            return entryDate.getHours() === currentHour &&
+                   entryDate.getDate() === today.getDate() &&
+                   entryDate.getMonth() === today.getMonth() &&
+                   entryDate.getFullYear() === today.getFullYear();
+        }).length;
+
+        // Calculate average for current hour from previous days
+        const currentHourStats = hourlyPatterns[currentHour];
+        const daysWithData = currentHourStats.days.size;
+        const avgOpeningsCurrentHour = daysWithData > 0 ? 
+            (currentHourStats.count - currentHourOpenings) / daysWithData : 
+            0;
+
+        // Detect anomaly
+        const anomaly = currentHourOpenings > (avgOpeningsCurrentHour * 2) && currentHourOpenings > 2 ? {
+            type: 'high_activity',
+            message: `Usædvanlig mange åbninger denne time (${currentHourOpenings} mod normalt ${avgOpeningsCurrentHour.toFixed(1)} pr. dag i denne time)`
+        } : null;
+
+        return {
+            busiestHours,
+            anomaly,
+            currentHourStats: {
+                current: currentHourOpenings,
+                average: avgOpeningsCurrentHour
+            }
+        };
     }
 
-    // Add logs
-    function addLogEntry(container, entry){
-      const div=document.createElement('div');
-      const startStr= formatClockTime(new Date(entry.start));
-      const endStr=   formatClockTime(new Date(entry.end));
-      const durStr=   formatTime(entry.durationMs||0);
-      div.textContent=`Åbnet: ${startStr} - ${endStr} (Varighed: ${durStr})`;
-      container.prepend(div);
-      lastLogEndTime= entry.end;
+      function updatePredictiveAnalytics() {
+        console.log("Updating predictive analytics...");
+        
+        // Get the prediction directly from calculateNextOpeningPrediction
+        const prediction = calculateNextOpeningPrediction(allLogs);
+        
+        // Store relevant data in predictiveAnalytics object
+        if (prediction) {
+            predictiveAnalytics.peakHours = prediction.busiestHours;
+            predictiveAnalytics.currentAnomaly = prediction.anomaly;
+            predictiveAnalytics.currentHourStats = prediction.currentHourStats;
+        }
+
+        // Update UI with predictions
+        updatePredictiveUI();
+      }
+
+      function updatePredictiveUI() {
+        console.log("Updating predictive UI...");
+        
+        let predictionsBox = document.querySelector('.predictions-box');
+        if (!predictionsBox) {
+            console.log("Creating new predictions box...");
+          predictionsBox = document.createElement('div');
+          predictionsBox.className = 'predictions-box';
+          const statsBox = document.querySelector('.stats-box');
+            if (statsBox) {
+          statsBox.parentNode.insertBefore(predictionsBox, statsBox.nextSibling);
+            }
+        }
+
+        if (!predictiveAnalytics.peakHours || !predictiveAnalytics.peakHours.length) {
+            predictionsBox.innerHTML = `
+                <div class="prediction-carousel">
+                    <div class="prediction-item">
+                        <h3>🕒 Spidsbelastning</h3>
+                        <p>Indsamler data...</p>
+                    </div>
+                </div>
+            `;
+            return;
+        }
+
+        const formatHourRange = (hour) => {
+            return `${hour}:00-${(hour + 1) % 24}:00`;
+        };
+
+        const peakHours = predictiveAnalytics.peakHours
+            .map(h => formatHourRange(h.hour))
+            .join(' og ');
+
+        // Create an array of prediction items
+        const predictionItems = [
+            `<div class="prediction-item">
+                <h3>⚠️ Sidste Alarm</h3>
+                ${generateLastAlarmInfo(alarmActivations, allLogs)}
+            </div>`,
+            `<div class="prediction-item">
+                <h3>🕒 Spidsbelastning</h3>
+                <p>Køleskabet forventes at være mest brugt mellem klokken ${peakHours}</p>
+            </div>`,
+            `<div class="prediction-item">
+                <h3>📊 Aktivitetsmønster</h3>
+                <p>Typisk ${predictiveAnalytics.currentHourStats?.average.toFixed(1) || 0} åbninger i denne time</p>
+                <p>Aktuelt: ${predictiveAnalytics.currentHourStats?.current || 0} åbninger</p>
+            </div>`,
+            `<div class="prediction-item">
+                <h3>📅 ${getDayName(new Date().getDay())}</h3>
+                ${generateDayAnalysis(allLogs)}
+            </div>`
+        ];
+
+        // Add anomaly as a third item if it exists
+        if (predictiveAnalytics.currentAnomaly) {
+            predictionItems.push(`
+                <div class="prediction-item anomaly">
+                    <h3>⚠️ Afvigelse opdaget</h3>
+                    <p>${predictiveAnalytics.currentAnomaly.message}</p>
+                </div>
+            `);
+        }
+
+        predictionsBox.innerHTML = `
+            <div class="prediction-carousel">
+                <button class="carousel-button prev">◀</button>
+                <div class="carousel-container">
+                    <div class="carousel-track">
+                        ${predictionItems.join('')}
+          </div>
+          </div>
+                <button class="carousel-button next">▶</button>
+            </div>
+        `;
+
+        // Add carousel functionality
+        const track = predictionsBox.querySelector('.carousel-track');
+        const items = track.querySelectorAll('.prediction-item');
+        let currentIndex = 0;
+
+        const updateCarousel = () => {
+            track.style.transform = `translateX(-${currentIndex * 100}%)`;
+            
+            // Update button states
+            const prevButton = predictionsBox.querySelector('.prev');
+            const nextButton = predictionsBox.querySelector('.next');
+            prevButton.style.visibility = currentIndex === 0 ? 'hidden' : 'visible';
+            nextButton.style.visibility = currentIndex === items.length - 1 ? 'hidden' : 'visible';
+        };
+
+        // Initialize button states
+        updateCarousel();
+
+        predictionsBox.querySelector('.prev').addEventListener('click', () => {
+            if (currentIndex > 0) {
+                currentIndex--;
+                updateCarousel();
+            }
+        });
+
+        predictionsBox.querySelector('.next').addEventListener('click', () => {
+            if (currentIndex < items.length - 1) {
+                currentIndex++;
+                updateCarousel();
+            }
+        });
     }
 
-    function updateTimeSinceLastOpen(){
-      if(!lastLogEndTime) return;
-      const elapsed= Date.now()-lastLogEndTime;
-      document.getElementById('timeSinceLastOpen').textContent= formatTime(elapsed);
+    // Helper function to get day name in Danish
+    function getDayName(dayIndex) {
+        return ['Søndag', 'Mandag', 'Tirsdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lørdag'][dayIndex];
     }
 
-    function formatTime(ms){
-      let totalSeconds= Math.floor(ms/1000);
-      const hours= Math.floor(totalSeconds/3600);
-      totalSeconds%=3600;
-      const minutes= Math.floor(totalSeconds/60);
-      const seconds= totalSeconds%60;
-      return [hours,minutes,seconds].map(n=> String(n).padStart(2,'0')).join(':');
+    // Analysis function for the current day of the week
+    function generateDayAnalysis(logs) {
+        const today = new Date().getDay();
+        const dayLogs = logs.filter(entry => new Date(entry.start).getDay() === today);
+        
+        if (dayLogs.length === 0) return '<p>Ingen data for denne ugedag endnu</p>';
+        
+        const avgOpeningsPerDay = dayLogs.length / Math.max(1, 
+            new Set(dayLogs.map(entry => 
+                new Date(entry.start).toDateString()
+            )).size
+        );
+        
+        const busyHours = Array(24).fill(0);
+        dayLogs.forEach(entry => {
+            const hour = new Date(entry.start).getHours();
+            busyHours[hour]++;
+        });
+        
+        const peakHour = busyHours.indexOf(Math.max(...busyHours));
+        
+        let trend = '';
+        if (avgOpeningsPerDay > 50) trend = 'meget travl';
+        else if (avgOpeningsPerDay > 40) trend = 'travl';
+        else if (avgOpeningsPerDay > 25) trend = 'normal';
+        else trend = 'stille';
+        
+        return `
+            <p>Typisk en <strong>${trend}</strong> dag med ca. ${avgOpeningsPerDay.toFixed(1)} åbninger</p>
+            <p>Mest aktivitet omkring kl. ${peakHour}:00</p>
+        `;
     }
-    function formatClockTime(dateObj){
-      const hh= String(dateObj.getHours()).padStart(2,'0');
-      const mm= String(dateObj.getMinutes()).padStart(2,'0');
-      const ss= String(dateObj.getSeconds()).padStart(2,'0');
-      return `${hh}:${mm}:${ss}`;
-    }
+
+    // Analysis function for quiet periods
+    function generateQuietPeriodAnalysis(logs) {
+        if (logs.length < 2) return '<p>Ikke nok data til at analysere stille perioder</p>';
+        
+        // Find gaps between openings
+        const gaps = [];
+        for (let i = 1; i < logs.length; i++) {
+            const gap = new Date(logs[i].start) - new Date(logs[i-1].end);
+            if (gap > 1800000) { // Only consider gaps > 30 minutes
+                gaps.push({
+                    duration: gap,
+                    startTime: new Date(logs[i-1].end),
+                    endTime: new Date(logs[i].start)
+                });
+            }
+        }
+        
+        if (gaps.length === 0) return '<p>Ingen længere stille perioder registreret</p>';
+        
+        // Find the most common quiet period
+        const hourGaps = gaps.map(gap => ({
+            startHour: gap.startTime.getHours(),
+            duration: gap.duration
+        }));
+        
+        const commonGapHour = hourGaps
+            .reduce((acc, curr) => {
+                acc[curr.startHour] = (acc[curr.startHour] || 0) + 1;
+                return acc;
+            }, {});
+        
+        const mostQuietHour = Object.entries(commonGapHour)
+            .sort((a, b) => b[1] - a[1])[0];
+        
+        const avgGapDuration = gaps.reduce((sum, gap) => sum + gap.duration, 0) / gaps.length;
+        
+        return `
+            <p>Længste stille periode starter typisk kl. ${mostQuietHour[0]}:00</p>
+            <p>Gennemsnitlig varighed: ${Math.round(avgGapDuration / 3600000)} timer</p>
+        `;
+      }
+
+      // Settings panel functionality
+      const settingsToggle = document.getElementById('settingsToggle');
+      const settingsPanel = document.querySelector('.settings-panel');
+      
+      settingsToggle.addEventListener('click', (e) => {
+          e.stopPropagation(); // Prevent click from immediately closing panel
+          const isVisible = settingsPanel.style.display !== 'none';
+          settingsPanel.style.display = isVisible ? 'none' : 'block';
+          settingsToggle.style.transform = isVisible ? 'rotate(0deg)' : 'rotate(180deg)';
+      });
+
+      // Close settings when clicking outside
+      document.addEventListener('click', (e) => {
+          if (!settingsPanel.contains(e.target) && 
+              !settingsToggle.contains(e.target) && 
+              settingsPanel.style.display !== 'none') {
+              settingsPanel.style.display = 'none';
+              settingsToggle.style.transform = 'rotate(0deg)';
+          }
+      });
+
+      // Initialize settings from localStorage
+      const themeToggle = document.getElementById('themeToggle');
+      const notificationsToggle = document.getElementById('notificationsToggle');
+      const predictionsToggle = document.getElementById('predictionsToggle');
+
+      // Load saved settings
+      themeToggle.checked = localStorage.getItem('lightTheme') === 'true';
+      notificationsToggle.checked = localStorage.getItem('notifications') !== 'false';
+      predictionsToggle.checked = localStorage.getItem('predictions') !== 'false';
+
+      // Theme toggle handler
+      themeToggle.addEventListener('change', () => {
+          document.body.dataset.theme = themeToggle.checked ? 'light' : 'dark';
+          localStorage.setItem('lightTheme', themeToggle.checked);
+      });
+
+      // Notifications toggle handler
+      notificationsToggle.addEventListener('change', () => {
+          localStorage.setItem('notifications', notificationsToggle.checked);
+      });
+
+      // Predictions toggle handler
+      predictionsToggle.addEventListener('change', () => {
+          localStorage.setItem('predictions', predictionsToggle.checked);
+          const predictionsBox = document.querySelector('.predictions-box');
+          if (predictionsBox) {
+              predictionsBox.style.display = predictionsToggle.checked ? 'block' : 'none';
+          }
+      });
+
+      // Initialize theme
+      document.body.dataset.theme = themeToggle.checked ? 'light' : 'dark';
+
+      // Add this new helper function
+      function generateLastAlarmInfo(alarmActivations, logs) {
+          if (!alarmActivations || alarmActivations.length === 0) {
+              return '<p>Ingen alarmer registreret endnu</p>';
+          }
+
+          // Get the most recent alarm timestamp
+          const lastAlarmTime = new Date(Math.max(...alarmActivations));
+          
+          // Find the corresponding log entry
+          const relatedLog = logs.find(log => {
+              const logStart = new Date(log.start);
+              const logEnd = new Date(log.end || log.start);
+              return logStart <= lastAlarmTime && logEnd >= lastAlarmTime;
+          });
+
+          if (!relatedLog) {
+              return '<p>Kunne ikke finde detaljer om sidste alarm</p>';
+          }
+
+          const formattedDate = lastAlarmTime.toLocaleDateString('da-DK', { 
+              weekday: 'long', 
+              year: 'numeric', 
+              month: 'long', 
+              day: 'numeric' 
+          });
+          
+          const formattedTime = lastAlarmTime.toLocaleTimeString('da-DK', {
+              hour: '2-digit',
+              minute: '2-digit'
+          });
+
+          const durationSeconds = Math.round(relatedLog.durationMs / 1000);
+
+          return `
+              <p>Den sidste alarm blev aktiveret ${formattedDate} klokken ${formattedTime}, 
+              da køleskabet var åbnet i ${durationSeconds} sekunder.</p>
+          `;
+      }
+    });
   </script>
 </head>
 
 <body>
-  <div class="monitor-container">
-    <h1>Køleskabsdetektor v3000</h1>
-    
-    <!-- Status Box -->
-    <div class="status-box">
-      <h3>Aktuel Status</h3>
-      <h1 id="currentStatus">Henter data...</h1>
-    </div>
-    
-    <!-- Stats Box -->
-    <div class="stats-box">
-      <!-- “Aktuel Åbning” + “Tid siden sidste åbning” -->
-      <div class="stat-group">
-        <h2 class="stat-counter"><span id="currentOpeningDuration">00:00:00</span></h2>
-        <p>Aktuel åbning</p>
+  <div class="page-container">
+    <!-- Existing monitor container -->
+    <div class="monitor-container">
+      <h1>❄️ Køleskabsdetektor ❄️</h1>
+      
+      <!-- Status Box -->
+      <div class="status-box">
+        <h3>Aktuel Status</h3>
+        <h1 id="currentStatus">Henter data...</h1>
       </div>
-      <div class="stat-group">
-        <h2 class="stat-counter"><span id="timeSinceLastOpen">00:00:00</span></h2>
-        <p>Tid siden sidste åbning</p>
-      </div>
-
-      <!-- Big Box container -->
-      <div class="stat-big-box">
-        <div class="ios-slider">
-          <button id="iosToggleAll"   class="ios-toggle-btn active">Total</button>
-          <button id="iosToggleMonth" class="ios-toggle-btn">Month</button>
-          <button id="iosToggleWeek"  class="ios-toggle-btn">Week</button>
-          <button id="iosToggleDay"   class="ios-toggle-btn">Day</button>
-        </div>
-        <!-- 4 columns of data below the slider -->
-        <div class="four-columns">
-          <div class="column-box">
-            <h2 id="bigBoxOpenings">0</h2>
-            <p>Number of Openings</p>
-          </div>
-          <div class="column-box">
-            <h2 id="bigBoxAlarmToggles">0</h2>
-            <p>Alarm Toggles</p>
-          </div>
-          <div class="column-box">
-            <h2 id="bigBoxLongestOpen">00:00:00</h2>
-            <p>Longest Opening</p>
-          </div>
-          <div class="column-box">
-            <h2 id="bigBoxAvgOpen">00:00:00</h2>
-            <p>Avg Opening Time</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Hide old stat-group boxes -->
-      <div style="display: none;">
+      
+      <!-- Stats Box -->
+      <div class="stats-box">
+        <!-- "Aktuel Åbning" + "Tid siden sidste åbning" -->
         <div class="stat-group">
-          <h3>Alle</h3>
-          <p>Antal åbninger: <span id="totalAllCount">0</span></p>
-          <p>Gennemsnitlig åbningstid: <span id="averageAllTime">00:00:00</span></p>
+          <h2 class="stat-counter"><span id="currentOpeningDuration">00:00:00</span></h2>
+          <p>Aktuel åbning</p>
         </div>
         <div class="stat-group">
-          <h3>Måned</h3>
-          <div class="stat-sub-group-container">
-            <div class="stat-sub-group">
-              <h2 class="stat-counter"><span id="totalMonthCount">0</span></h2>
-              <p class="stat-description">Åbninger</p>
+          <h2 class="stat-counter"><span id="timeSinceLastOpen">00:00:00</span></h2>
+          <p>Tid siden sidste åbning</p>
+        </div>
+
+        <!-- Big Box container -->
+        <div class="stat-big-box">
+          <div class="ios-slider">
+            <button id="iosToggleAll"   class="ios-toggle-btn active">Total</button>
+            <button id="iosToggleMonth" class="ios-toggle-btn">Måned</button>
+            <button id="iosToggleWeek"  class="ios-toggle-btn">Uge</button>
+            <button id="iosToggleDay"   class="ios-toggle-btn">Dag</button>
+          </div>
+          <!-- 4 columns of data below the slider -->
+          <div class="four-columns">
+            <div class="column-box">
+              <h2 id="bigBoxOpenings">0</h2>
+              <p>Antal Åbninger</p>
             </div>
-            <div class="stat-sub-group">
-              <h2 class="stat-counter"><span id="averageMonth">00:00:00</span></h2>
-              <p class="stat-description">Gns. Åbningstid</p>
+            <div class="column-box">
+              <h2 id="bigBoxAlarmToggles">0</h2>
+              <p>Antal Alarmer</p>
             </div>
-          </div>   
+            <div class="column-box">
+              <h2 id="bigBoxLongestOpen">00:00:00</h2>
+              <p>Længste Åbning</p>
+            </div>
+            <div class="column-box">
+              <h2 id="bigBoxAvgOpen">00:00:00</h2>
+              <p>Gns. Åbningstid</p>
+            </div>
+          </div>
         </div>
-        <div class="stat-group">
-          <h3>Uge</h3>
-          <p>Antal åbninger: <span id="totalWeekCount">0</span></p>
-          <p>Gennemsnitlig åbningstid: <span id="averageWeek">00:00:00</span></p>
-        </div>
-        <div class="stat-group">
-          <h3>Dag</h3>
-          <p>Antal åbninger: <span id="totalDayCount">0</span></p>
-          <p>Gennemsnitlig åbningstid: <span id="averageDay">00:00:00</span></p>
-        </div>
-      </div> <!-- end hidden old stats -->
-    </div> <!-- end .stats-box -->
 
-    <!-- The Log box -->
-    <div class="log-box">
-      <h2>Log</h2>
-      <div id="logEntries"></div>
+        <!-- Hide old stat-group boxes -->
+        <div style="display: none;">
+          <div class="stat-group">
+            <h3>Alle</h3>
+            <p>Antal åbninger: <span id="totalAllCount">0</span></p>
+            <p>Gennemsnitlig åbningstid: <span id="averageAllTime">00:00:00</span></p>
+          </div>
+          <div class="stat-group">
+            <h3>Måned</h3>
+            <div class="stat-sub-group-container">
+              <div class="stat-sub-group">
+                <h2 class="stat-counter"><span id="totalMonthCount">0</span></h2>
+                <p class="stat-description">Åbninger</p>
+              </div>
+              <div class="stat-sub-group">
+                <h2 class="stat-counter"><span id="averageMonth">00:00:00</span></h2>
+                <p class="stat-description">Gns. Åbningstid</p>
+              </div>
+            </div>   
+          </div>
+          <div class="stat-group">
+            <h3>Uge</h3>
+            <p>Antal åbninger: <span id="totalWeekCount">0</span></p>
+            <p>Gennemsnitlig åbningstid: <span id="averageWeek">00:00:00</span></p>
+          </div>
+          <div class="stat-group">
+            <h3>Dag</h3>
+            <p>Antal åbninger: <span id="totalDayCount">0</span></p>
+            <p>Gennemsnitlig åbningstid: <span id="averageDay">00:00:00</span></p>
+          </div>
+        </div> <!-- end hidden old stats -->
+      </div> <!-- end .stats-box -->
+
+      <!-- The Log box -->
+      <div class="log-box">
+        <h2>Log</h2>
+        <div id="logEntries"></div>
+      </div>
+      
+      <!-- Enable Audio button below the log -->
+      <button id="enableAudioBtn" class="enable-audio-btn">Aktivér alarm-lyd</button>
     </div>
-    
-    <!-- Enable Audio button below the log -->
-    <button id="enableAudioBtn" class="enable-audio-btn">Aktivér alarm-lyd</button>
+
+    <!-- New visualization container -->
+    <div class="visualization-container">
+      <div class="chart-box">
+        <h3>Åbninger pr. Time</h3>
+        <canvas id="openingsPerHour"></canvas>
+      </div>
+      
+      <div class="chart-box">
+        <h3>Alarm Aktivering Rate</h3>
+        <canvas id="alarmRate"></canvas>
+      </div>
+      
+      <div class="chart-box">
+        <h3>Top 5 Længste Åbninger</h3>
+        <canvas id="topOpenings"></canvas>
+      </div>
+
+      <div class="chart-box">
+        <h3>Gennemsnitlig Åbningstid</h3>
+        <canvas id="avgOpenTimePerDay"></canvas>
+      </div>
+
+      <div class="chart-box full-width">
+        <h3>Ugentlig Aktivitet</h3>
+        <canvas id="weeklyActivity"></canvas>
+      </div>
+    </div>
   </div>
 
   <!-- Alarm audio (loop) for monitor -->
@@ -579,5 +1345,30 @@
     <source src="https://actions.google.com/sounds/v1/alarms/alarm_clock.mp3" type="audio/mpeg">
     Din browser understøtter ikke afspilning af alarm-lyd.
   </audio>
+
+  <div class="settings-panel">
+    <h3>Indstillinger</h3>
+    <div class="setting-item">
+      <label>
+        <input type="checkbox" id="themeToggle"> Lys tema
+      </label>
+    </div>
+    <div class="setting-item">
+      <label>
+        <input type="checkbox" id="notificationsToggle" checked> Notifikationer
+      </label>
+    </div>
+    <div class="setting-item">
+      <label>
+        <input type="checkbox" id="predictionsToggle" checked> Vis forudsigelser
+      </label>
+    </div>
+  </div>
+
+  <button class="settings-toggle" id="settingsToggle">⚙️</button>
+
+  <div class="notification-center" id="notificationCenter">
+    <!-- Notifications will be added here dynamically -->
+  </div>
 </body>
 </html>
