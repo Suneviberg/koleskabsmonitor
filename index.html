@@ -42,7 +42,7 @@
     
     // All logs
     let allLogs = [];
-
+ 
     // We'll track alarm triggers in memory:
     let alarmActivations = []; // array of timestamps (when the alarm triggered)
 
@@ -245,8 +245,11 @@
         const thisDate     = now.getDate();
         const weekAgo      = new Date(now.getTime() - 7 * 86400000);
 
+        // Filter out entries less than 1 second
+        const validLogs = allLogs.filter(entry => (entry.durationMs || 0) >= 1000);
+
         // 1) Process log entries
-        for(const entry of allLogs) {
+        for(const entry of validLogs) {  // Changed from allLogs to validLogs
           const dur = entry.durationMs || 0;
           // "All"
           openCountAll++;
@@ -334,9 +337,9 @@
 
         // Update the charts
         updateCharts(charts);
-
-        // Add to updateStatistics function, before the charts update
-        updatePredictiveAnalytics();
+        
+        // Pass validLogs to updatePredictiveAnalytics
+        updatePredictiveAnalytics(validLogs);  // Changed: pass validLogs as parameter
       }
 
       function updateBigBoxDisplay(){
@@ -474,6 +477,9 @@
 
       // Add logs
       function addLogEntry(container, entry) {
+        // Skip entries less than 1 second
+        if ((entry.durationMs || 0) < 1000) return;
+
         const entryDate = new Date(entry.start);
         const dateStr = entryDate.toLocaleDateString('da-DK', { 
           weekday: 'long', 
@@ -759,7 +765,10 @@
         const hourlyData = Array(24).fill(0);
         const today = new Date();
         
-        allLogs.forEach(entry => {
+        // Filter logs before processing
+        const validLogs = allLogs.filter(entry => (entry.durationMs || 0) >= 1000);
+        
+        validLogs.forEach(entry => {
           const entryDate = new Date(entry.start);
           const hour = entryDate.getHours();
           
@@ -777,13 +786,16 @@
         return hourlyData;
       }
 
-      // Update the updateCharts function to match
+      // Update the updateCharts function to use validLogs
       function updateCharts(charts) {
         if (!charts) return;
 
+        // Filter out entries less than 1 second
+        const validLogs = allLogs.filter(entry => (entry.durationMs || 0) >= 1000);
+
         // Update openings per hour
         const hourCounts = Array(24).fill(0);
-        allLogs.forEach(entry => {
+        validLogs.forEach(entry => {
           const hour = new Date(entry.start).getHours();
           hourCounts[hour]++;
         });
@@ -796,7 +808,7 @@
         charts.alarmRateChart.update();
 
         // Update top 5 longest openings
-        const top5Openings = [...allLogs]
+        const top5Openings = [...validLogs]
           .sort((a, b) => (b.durationMs || 0) - (a.durationMs || 0))
           .slice(0, 5);
         charts.topOpeningsChart.data.labels = top5Openings.map(entry => {
@@ -815,7 +827,7 @@
 
         // Update weekly activity
         const weekdayCounts = Array(7).fill(0);
-        allLogs.forEach(entry => {
+        validLogs.forEach(entry => {
           const dayIndex = new Date(entry.start).getDay();
           weekdayCounts[dayIndex]++;
         });
@@ -827,18 +839,18 @@
         // Update average open time per day
         const last7Days = Array(7).fill(0).map((_, i) => {
           const date = new Date();
-          date.setDate(date.getDate() - (6 - i));  // Changed to count forward
+          date.setDate(date.getDate() - (6 - i));
           return date;
         });
 
         const dailyAverages = last7Days.map(date => {
-          const dayLogs = allLogs.filter(entry => {
+          const dayLogs = validLogs.filter(entry => {
             const entryDate = new Date(entry.start);
             return entryDate.toDateString() === date.toDateString();
           });
           if (dayLogs.length === 0) return 0;
           const avgMs = dayLogs.reduce((sum, log) => sum + (log.durationMs || 0), 0) / dayLogs.length;
-          return Math.round(avgMs / 1000); // Convert to seconds
+          return Math.round(avgMs / 1000);
         });
 
         charts.avgTimeChart.data.datasets[0].data = dailyAverages;
@@ -847,29 +859,30 @@
 
       // Replace the existing calculateTypicalInterval with these more sophisticated functions
       function calculateNextOpeningPrediction(logs) {
+        const validLogs = logs.filter(entry => (entry.durationMs || 0) >= 1000);
         const now = new Date();
         const currentHour = now.getHours();
         
         // Analyze hourly patterns across days
         const hourlyPatterns = Array(24).fill(0).map(() => ({
           count: 0,
-            days: new Set() // Track unique days to calculate daily average
+          days: new Set()
         }));
 
-        // Build hourly statistics
-        logs.forEach(entry => {
+        // Build hourly statistics using validLogs
+        validLogs.forEach(entry => {
           const entryDate = new Date(entry.start);
           const hour = entryDate.getHours();
-            const dayKey = `${entryDate.getFullYear()}-${entryDate.getMonth()}-${entryDate.getDate()}`;
+          const dayKey = `${entryDate.getFullYear()}-${entryDate.getMonth()}-${entryDate.getDate()}`;
           hourlyPatterns[hour].count++;
-            hourlyPatterns[hour].days.add(dayKey);
+          hourlyPatterns[hour].days.add(dayKey);
         });
 
         // Calculate average openings per hour per day
         const hourlyAverages = hourlyPatterns.map((pattern, hour) => ({
           hour,
-            avgPerDay: pattern.count / Math.max(1, pattern.days.size),
-            totalCount: pattern.count
+          avgPerDay: pattern.count / Math.max(1, pattern.days.size),
+          totalCount: pattern.count
         }));
 
         // Find the busiest hours (top 2)
@@ -879,7 +892,7 @@
 
         // Count openings in current hour today
         const today = new Date();
-        const currentHourOpenings = logs.filter(entry => {
+        const currentHourOpenings = validLogs.filter(entry => {
             const entryDate = new Date(entry.start);
             return entryDate.getHours() === currentHour &&
                    entryDate.getDate() === today.getDate() &&
@@ -910,11 +923,11 @@
         };
     }
 
-      function updatePredictiveAnalytics() {
+      function updatePredictiveAnalytics(validLogs) {
         console.log("Updating predictive analytics...");
         
         // Get the prediction directly from calculateNextOpeningPrediction
-        const prediction = calculateNextOpeningPrediction(allLogs);
+        const prediction = calculateNextOpeningPrediction(validLogs);
         
         // Store relevant data in predictiveAnalytics object
         if (prediction) {
@@ -924,10 +937,10 @@
         }
 
         // Update UI with predictions
-        updatePredictiveUI();
+        updatePredictiveUI(validLogs);  // Changed: pass validLogs to updatePredictiveUI
       }
 
-      function updatePredictiveUI() {
+      function updatePredictiveUI(validLogs) {
         console.log("Updating predictive UI...");
         
         let predictionsBox = document.querySelector('.predictions-box');
@@ -965,7 +978,7 @@
         const predictionItems = [
             `<div class="prediction-item">
                 <h3>⚠️ Sidste Alarm</h3>
-                ${generateLastAlarmInfo(alarmActivations, allLogs)}
+                ${generateLastAlarmInfo(alarmActivations, validLogs)}
             </div>`,
             `<div class="prediction-item">
                 <h3>🕒 Spidsbelastning</h3>
@@ -978,7 +991,7 @@
             </div>`,
             `<div class="prediction-item">
                 <h3>📅 ${getDayName(new Date().getDay())}</h3>
-                ${generateDayAnalysis(allLogs)}
+                ${generateDayAnalysis(validLogs)}
             </div>`
         ];
 
@@ -1042,10 +1055,11 @@
         return ['Søndag', 'Mandag', 'Tirsdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lørdag'][dayIndex];
     }
 
-    // Analysis function for the current day of the week
+    // Update generateDayAnalysis to use validLogs
     function generateDayAnalysis(logs) {
         const today = new Date().getDay();
-        const dayLogs = logs.filter(entry => new Date(entry.start).getDay() === today);
+        const validLogs = logs.filter(entry => (entry.durationMs || 0) >= 1000);
+        const dayLogs = validLogs.filter(entry => new Date(entry.start).getDay() === today);
         
         if (dayLogs.length === 0) return '<p>Ingen data for denne ugedag endnu</p>';
         
